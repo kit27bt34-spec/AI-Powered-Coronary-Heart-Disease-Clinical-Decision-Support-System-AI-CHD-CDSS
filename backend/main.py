@@ -50,7 +50,7 @@ app.add_middleware(
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     from backend.middleware.api_gateway import api_gateway_middleware
-    return await api_gateway_middleware(request, lambda req: call_next(req))
+    return await api_gateway_middleware(request, call_next)
 
 
 

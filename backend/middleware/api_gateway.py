@@ -31,4 +31,9 @@ async def api_gateway_middleware(request: Request, call_next):
 
     response.headers["X-Correlation-ID"] = correlation_id
     response.headers["X-Process-Time-MS"] = f"{process_time:.2f}"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; img-src 'self' data: blob:;"
     return response
