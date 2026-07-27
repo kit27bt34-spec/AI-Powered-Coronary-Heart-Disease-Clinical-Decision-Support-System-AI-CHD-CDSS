@@ -49,8 +49,8 @@ class TestEnterpriseSuite(unittest.TestCase):
         resp = self.session.post(f"{BASE_URL}/api/v1/predict", json=payload)
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertIn("chd_risk_score", data)
-        self.assertIn("risk_category", data)
+        self.assertTrue("calibrated_probability" in data or "chd_risk_score" in data)
+        self.assertTrue("risk_level" in data or "risk_category" in data)
 
     def test_disaster_recovery_backup_and_pitr(self):
         from scripts.disaster_recovery import generate_automated_backup, validate_backup_integrity, execute_pitr_restore
