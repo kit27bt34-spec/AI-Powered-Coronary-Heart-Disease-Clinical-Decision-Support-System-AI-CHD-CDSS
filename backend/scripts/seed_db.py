@@ -49,7 +49,14 @@ def seed_database(reset_db: bool = False):
         # Auto-migrate missing columns for existing PostgreSQL tables on Render
         try:
             db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS code VARCHAR(50);"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS city VARCHAR(100);"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS state VARCHAR(100);"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS country VARCHAR(100);"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'Active';"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS total_beds INTEGER DEFAULT 100;"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS icu_beds INTEGER DEFAULT 20;"))
             db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS ccu_beds INTEGER DEFAULT 20;"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS hospital_type VARCHAR(100);"))
             db.execute(text("ALTER TABLE patients ADD COLUMN IF NOT EXISTS assigned_doctor_id VARCHAR(36);"))
             db.commit()
         except Exception as e:
