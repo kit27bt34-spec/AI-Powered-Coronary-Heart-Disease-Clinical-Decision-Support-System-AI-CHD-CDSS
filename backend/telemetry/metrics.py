@@ -1,5 +1,8 @@
 import time
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 from fastapi import APIRouter, Response, status
 
 router = APIRouter(prefix="/metrics", tags=["Prometheus & Telemetry"])

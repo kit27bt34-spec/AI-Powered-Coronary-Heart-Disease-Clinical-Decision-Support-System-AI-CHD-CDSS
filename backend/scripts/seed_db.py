@@ -45,6 +45,16 @@ def seed_database(reset_db: bool = False):
     db: Session = SessionLocal()
 
     try:
+        from sqlalchemy import text
+        # Auto-migrate missing columns for existing PostgreSQL tables on Render
+        try:
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS code VARCHAR(50);"))
+            db.execute(text("ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS ccu_beds INTEGER DEFAULT 20;"))
+            db.execute(text("ALTER TABLE patients ADD COLUMN IF NOT EXISTS assigned_doctor_id VARCHAR(36);"))
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Auto-column migration warning: {e}")
+            db.rollback()
         # 1. Seed Roles
         roles_to_seed = [
             "admin",
@@ -117,7 +127,9 @@ def seed_database(reset_db: bool = False):
         ]
         seeded_hospitals = []
         for h_info in hospitals_data:
-            existing_h = db.query(Hospital).filter_by(code=h_info["code"]).first()
+            existing_h = db.query(Hospital).filter(
+                (Hospital.name == h_info["name"]) | (Hospital.code == h_info["code"])
+            ).first()
             if not existing_h:
                 h = Hospital(**h_info)
                 db.add(h)
