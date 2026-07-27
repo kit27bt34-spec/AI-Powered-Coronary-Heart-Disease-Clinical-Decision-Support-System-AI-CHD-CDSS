@@ -5,6 +5,7 @@ import { UserCheck, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-rea
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
 import RefreshButton from "@/components/ui/RefreshButton";
+import { api } from "@/lib/api";
 
 export default function AdminApprovalsPage() {
   const [approvals, setApprovals] = useState<any[]>([]);

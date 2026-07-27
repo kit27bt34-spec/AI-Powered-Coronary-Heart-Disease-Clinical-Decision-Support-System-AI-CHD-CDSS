@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Building2, MapPin, BedDouble, Shield, CheckCircle2, ArrowLeft, ArrowRight,
   Sparkles, Layers, Stethoscope, Mail, Phone, Lock, Eye, EyeOff, Globe,
-  AlertCircle, Check, Copy, Download, RefreshCw, Server, Cpu, Terminal, Activity, X
+  AlertCircle, Check, Copy, Download, RefreshCw, Server, Cpu, Terminal, Activity, X, Heart
 } from "lucide-react";
 
 import GlassCard from "@/components/ui/GlassCard";

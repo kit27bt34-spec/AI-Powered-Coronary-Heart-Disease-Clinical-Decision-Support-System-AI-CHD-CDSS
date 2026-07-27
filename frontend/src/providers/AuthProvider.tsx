@@ -8,6 +8,9 @@ export interface User {
   email: string;
   role: string;
   is_active: boolean;
+  full_name?: string;
+  must_change_password?: boolean;
+  is_first_login?: boolean;
 }
 
 interface AuthContextType {

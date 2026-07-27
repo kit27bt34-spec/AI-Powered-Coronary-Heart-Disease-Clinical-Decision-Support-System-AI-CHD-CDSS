@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
             <Radio className="h-4 w-4 animate-pulse text-amber-500" />
             <span>Real-time WebSocket stream offline. Operating in 10s auto-polling failover mode.</span>
           </div>
-          <button onClick={fetchStats} className="px-3 py-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition">
+          <button onClick={() => fetchStats()} className="px-3 py-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition">
             Reconnect
           </button>
         </div>
@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
             <AlertTriangle className="h-4 w-4 text-rose-500" />
             <span>Unable to connect to shared AnalyticsService backend.</span>
           </div>
-          <button onClick={fetchStats} className="px-3 py-1 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition">
+          <button onClick={() => fetchStats()} className="px-3 py-1 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition">
             Retry Now
           </button>
         </div>
