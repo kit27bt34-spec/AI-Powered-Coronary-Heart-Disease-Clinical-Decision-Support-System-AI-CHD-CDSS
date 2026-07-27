@@ -1,16 +1,16 @@
 {
-    "model_name": "XGBoost",
-    "version": "4",
-    "mlflow_run_id": "e449f9d382194d0cb1dd837edb855159",
-    "dataset_version": "20260714_v1",
-    "dataset_checksum": "6c9e118e245abe61075317face8be98bfe2091c684bebcf78cf7e3b759ba2322",
-    "training_date": "2026-07-14",
+    "model_name": "CatBoost",
+    "version": "8",
+    "mlflow_run_id": "15f888f6011348d99877fef36d68df43",
+    "dataset_version": "unknown_version",
+    "dataset_checksum": "e162d5aa4f7477b63dae668345febf20b58529baac468a686bab2e0641c0ac7a",
+    "training_date": "2026-07-27",
     "calibration_method": "isotonic",
     "brier_scores_calibration": {
-        "uncalibrated": 0.19143121753292033,
-        "platt": 0.18426204715511194,
-        "isotonic": 0.14266091051805335
+        "uncalibrated": 0.17687726758684713,
+        "platt": 0.17658971788187197,
+        "isotonic": 0.17534268381828474
     },
     "fairness_status": "Failed Thresholds",
-    "is_smoke_test_only": true
+    "is_smoke_test_only": false
 }

@@ -49,16 +49,44 @@ class Role(Base):
 
 class User(Base, AuditableMixin):
     __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    employee_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, index=True, nullable=True)
+    full_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
+    phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    dob: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    designation: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    hospital_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("hospitals.id"), nullable=True
+    )
+    department_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("departments.id"), nullable=True
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    username: Mapped[Optional[str]] = mapped_column(String(100), unique=True, index=True, nullable=True)
     role: Mapped[str] = mapped_column(
         String(50), default="doctor", nullable=False
     )  # admin, doctor, auditor, governance, nurse, etc.
+    status: Mapped[str] = mapped_column(String(50), default="Active", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_first_login: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    temporary_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_logout: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    browser: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    account_locked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    permissions_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     doctor_profile = relationship("DoctorProfile", back_populates="user", uselist=False)
     notifications = relationship(
@@ -67,6 +95,7 @@ class User(Base, AuditableMixin):
     notification_preference = relationship(
         "NotificationPreference", back_populates="user", uselist=False
     )
+
 
 
 class DoctorProfile(Base, AuditableMixin):
@@ -100,6 +129,12 @@ class DoctorProfile(Base, AuditableMixin):
     hospital: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     medical_council: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     license_expiry: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    sub_specialization: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    years_of_experience: Mapped[Optional[int]] = mapped_column(Integer, default=5, nullable=True)
+    employment_type: Mapped[Optional[str]] = mapped_column(String(50), default="Full Time", nullable=True)
+    availability_status: Mapped[Optional[str]] = mapped_column(String(50), default="Available", nullable=True)
+    languages: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    certificates: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user = relationship("User", back_populates="doctor_profile")
     appointments = relationship("Appointment", back_populates="doctor")
@@ -150,6 +185,12 @@ class Patient(Base, AuditableMixin):
     __tablename__ = "patients"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    hospital_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("hospitals.id"), nullable=True, index=True
+    )
+    assigned_doctor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True, index=True
+    )
     patient_uuid: Mapped[str] = mapped_column(
         String(64), unique=True, index=True, nullable=False
     )  # Anonymized key
@@ -157,6 +198,8 @@ class Patient(Base, AuditableMixin):
     gender: Mapped[int] = mapped_column(Integer, nullable=False)  # 0: Female, 1: Male
     anchor_age: Mapped[int] = mapped_column(Integer, nullable=False)
 
+    hospital = relationship("Hospital", foreign_keys=[hospital_id])
+    assigned_doctor = relationship("User", foreign_keys=[assigned_doctor_id])
     admissions = relationship("Admission", back_populates="patient")
     appointments = relationship("Appointment", back_populates="patient")
 
@@ -173,6 +216,7 @@ class Admission(Base, AuditableMixin):
     )
     admittime: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     dischtime: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    careunit: Mapped[Optional[str]] = mapped_column(String(100), default="ICU Bed", nullable=True)
 
     patient = relationship("Patient", back_populates="admissions")
     diagnoses = relationship("Diagnosis", back_populates="admission")
@@ -183,6 +227,8 @@ class Admission(Base, AuditableMixin):
     diastolic_bp: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     heart_rate: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     cholesterol: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    glucose: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    smoking: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
     statin_history: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, default=0
     )
@@ -425,18 +471,28 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("users.id"), nullable=False
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("users.id"), nullable=True
     )
     sender_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("users.id"), nullable=True
     )
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    recipient_role: Mapped[Optional[str]] = mapped_column(String(50), default="super_admin", nullable=True)
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    module: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    severity: Mapped[str] = mapped_column(String(20), default="info", nullable=False)
+    action_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    related_entity_type: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    related_entity_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="notifications", foreign_keys=[user_id])
     sender = relationship("User", foreign_keys=[sender_id])
@@ -632,6 +688,26 @@ class Hospital(Base, AuditableMixin):
     contact_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     total_beds: Mapped[int] = mapped_column(Integer, default=250, nullable=False)
     icu_beds: Mapped[int] = mapped_column(Integer, default=35, nullable=False)
+    ccu_beds: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+
+    # Enterprise Provisioning Attributes
+    hospital_type: Mapped[Optional[str]] = mapped_column(String(100), default="Multi-Specialty", nullable=True)
+    reg_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    address_line1: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    address_line2: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    postal_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    timezone: Mapped[Optional[str]] = mapped_column(String(50), default="UTC-5 (EST)", nullable=True)
+    language: Mapped[Optional[str]] = mapped_column(String(50), default="English", nullable=True)
+    currency: Mapped[Optional[str]] = mapped_column(String(10), default="USD ($)", nullable=True)
+    emergency_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    icu_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    ai_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    email_notifications: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sms_notifications: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    audit_logging: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 class Department(Base, AuditableMixin):
@@ -649,21 +725,4 @@ class Department(Base, AuditableMixin):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
-class Notification(Base, AuditableMixin):
-    __tablename__ = "notifications"
-    __table_args__ = {"extend_existing": True}
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        Uuid, ForeignKey("users.id"), nullable=True
-    )
-    recipient_role: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    type: Mapped[str] = mapped_column(String(50), nullable=False)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    message: Mapped[str] = mapped_column(Text, nullable=False)
-    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
-
-    user = relationship("User", back_populates="notifications", foreign_keys=[user_id])

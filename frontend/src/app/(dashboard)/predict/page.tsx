@@ -33,6 +33,7 @@ import {
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassBadge from "@/components/ui/GlassBadge";
+import RefreshButton from "@/components/ui/RefreshButton";
 import { downloadChdReport } from "@/lib/pdfGenerator";
 
 export default function ClinicalPrediction() {
@@ -306,11 +307,14 @@ export default function ClinicalPrediction() {
   return (
     <div className="space-y-6">
       {/* Title */}
-      <div>
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Clinical CHD Prediction Engine</h2>
-        <p className="text-xs text-slate-400 font-medium mt-0.5">
-          Real-time 10-year calibrated Coronary Heart Disease risk inference via trained CatBoost model pipeline.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Clinical CHD Prediction Engine</h2>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            Real-time 10-year calibrated Coronary Heart Disease risk inference via trained CatBoost model pipeline.
+          </p>
+        </div>
+        <RefreshButton onRefresh={() => { queryClient.refetchQueries(); }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

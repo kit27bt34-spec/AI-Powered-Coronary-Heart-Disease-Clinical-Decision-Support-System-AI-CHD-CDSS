@@ -210,7 +210,13 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push("/dashboard");
+      const mustChange = Boolean(user.must_change_password || user.is_first_login);
+      if (mustChange) {
+        router.push("/doctor/change-password");
+      } else {
+        localStorage.removeItem("must_change_password");
+        router.push("/dashboard");
+      }
     }
   }, [user, router]);
 
@@ -222,9 +228,23 @@ export default function LoginPage() {
     }
     setIsSubmitting(true);
     try {
-      await login(email, password);
-      toast("Successfully authenticated to the Doctor Portal.", "success", "Welcome Doctor");
-      router.push("/dashboard");
+      const res: any = await login(email, password);
+      const mustChange = Boolean(
+        res?.must_change_password ||
+        res?.user?.must_change_password ||
+        res?.user?.is_first_login
+      );
+
+      if (mustChange) {
+        localStorage.setItem("must_change_password", "true");
+        toast("Temporary password detected. Security policy requires an immediate password update.", "warning", "First Login Notice");
+        router.push("/doctor/change-password");
+      } else {
+        localStorage.removeItem("must_change_password");
+        localStorage.setItem("selected_hospital_name", "St. Jude Memorial");
+        toast("Successfully authenticated to the Doctor Portal.", "success", "Welcome Doctor");
+        router.push("/dashboard?hospital=st-jude-memorial");
+      }
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.detail ||
@@ -234,6 +254,7 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
+
 
   /* Random particles config */
   const particles = [

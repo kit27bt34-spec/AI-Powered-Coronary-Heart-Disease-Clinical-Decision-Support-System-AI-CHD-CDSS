@@ -19,8 +19,12 @@ def split_dataset(
     """
     assert abs((train_ratio + val_ratio + test_ratio) - 1.0) < 1e-5, "Ratios must sum to 1.0"
     
+    df_clean = df.copy()
+    if patient_id_col not in df_clean.columns:
+        df_clean[patient_id_col] = df_clean.index
+
     # 1. Extract unique patient IDs and their aggregate target status (stratification key)
-    patient_targets = df.groupby(patient_id_col)[target_col].max().reset_index()
+    patient_targets = df_clean.groupby(patient_id_col)[target_col].max().reset_index()
     
     # Calculate ratios relative to remaining data
     val_test_sum = val_ratio + test_ratio
@@ -70,9 +74,9 @@ def split_dataset(
     test_ids = test_pts[patient_id_col].values
     
     # 4. Map back to full admissions dataset
-    train_df = df[df[patient_id_col].isin(train_ids)].copy()
-    val_df = df[df[patient_id_col].isin(val_ids)].copy()
-    test_df = df[df[patient_id_col].isin(test_ids)].copy()
+    train_df = df_clean[df_clean[patient_id_col].isin(train_ids)].copy()
+    val_df = df_clean[df_clean[patient_id_col].isin(val_ids)].copy()
+    test_df = df_clean[df_clean[patient_id_col].isin(test_ids)].copy()
     
     logger.info(f"Split completed. Train: {len(train_df)} rows, Val: {len(val_df)} rows, Test: {len(test_df)} rows.")
     

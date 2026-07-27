@@ -15,6 +15,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassBadge from "@/components/ui/GlassBadge";
+import RefreshButton from "@/components/ui/RefreshButton";
 import { useToast } from "@/providers/ToastProvider";
 import {
   downloadGenericReport,
@@ -203,7 +204,7 @@ export default function ReportsCenter() {
   });
 
   /* --- Real Reports from DB ---------------------------------------- */
-  const { data: dbReports = [], isLoading: reportsLoading } = useQuery<DbReport[]>({
+  const { data: dbReports = [], isLoading: reportsLoading, refetch: refetchReports } = useQuery<DbReport[]>({
     queryKey: ["reports"],
     queryFn: async () => {
       const res = await api.get("/api/v1/reports");
@@ -455,15 +456,18 @@ export default function ReportsCenter() {
             Generate, organize, preview, print and export patient reports, AI prediction summaries and clinical documentation.
           </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setGenerateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-extrabold shadow-md shadow-blue-500/15 hover:bg-blue-700 transition whitespace-nowrap self-start sm:self-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Generate Report
-        </motion.button>
+        <div className="flex items-center gap-3">
+          <RefreshButton onRefresh={refetchReports} />
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setGenerateModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-xs font-extrabold shadow-md shadow-blue-500/15 hover:bg-blue-700 transition whitespace-nowrap self-start sm:self-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Generate Report
+          </motion.button>
+        </div>
       </div>
 
       {/* -- Summary Cards ------------------------------------------- */}

@@ -18,8 +18,11 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
+    username: Optional[str] = None
     role: str
     is_active: bool
+    is_first_login: bool = False
+    must_change_password: bool = False
     created_at: datetime
 
     class Config:
@@ -34,7 +37,14 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    must_change_password: bool = False
     user: UserResponse
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
 
 
 # --------------------------------------------------
@@ -370,6 +380,8 @@ class InferenceLogResponse(BaseModel):
 # Patient schemas
 class PatientCreate(BaseModel):
     name: Optional[str] = Field(None, description="Patient full name")
+    careunit: Optional[str] = Field("ICU Bed", description="Bed/Ward option: Normal Bed, ICU Bed, or CCU Bed")
+    assigned_doctor_id: Optional[str] = Field(None, description="UUID of assigned attending doctor")
     age: int = Field(..., ge=0, le=120)
     gender: int = Field(..., ge=0, le=1, description="0: Female, 1: Male")
     bmi: Optional[float] = Field(None, ge=10, le=80)

@@ -47,13 +47,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const response = await api.post("/api/v1/auth/login", { email, password });
-      const { access_token, user: loggedUser } = response.data;
+      const { access_token, user: loggedUser, must_change_password } = response.data;
       
       localStorage.setItem("token", access_token);
       localStorage.setItem("user", JSON.stringify(loggedUser));
+
+      const needsChange = Boolean(
+        must_change_password ||
+        loggedUser?.must_change_password ||
+        loggedUser?.is_first_login
+      );
+
+      if (needsChange) {
+        localStorage.setItem("must_change_password", "true");
+      } else {
+        localStorage.removeItem("must_change_password");
+      }
       
       setToken(access_token);
       setUser(loggedUser);
+      return response.data;
     } catch (error) {
       logout();
       throw error;
@@ -61,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   };
+
 
   const logout = () => {
     localStorage.removeItem("token");

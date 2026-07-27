@@ -7,8 +7,6 @@
         "glucose",
         "heart_rate",
         "cholesterol",
-        "admission_frequency",
-        "medication_count",
         "comorbidity_burden"
     ],
     "categorical_features": [
@@ -19,16 +17,7 @@
         "hypertension",
         "diabetes",
         "previous_cardiac",
-        "smoking",
-        "statin_history",
-        "beta_blocker_history",
-        "ace_arb_history",
-        "aspirin_history",
-        "bmi_missing",
-        "bp_missing",
-        "glucose_missing",
-        "chol_missing",
-        "hr_missing"
+        "smoking"
     ],
     "selected_features": [
         "age",
@@ -36,20 +25,12 @@
         "systolic_bp",
         "diastolic_bp",
         "glucose",
+        "heart_rate",
         "cholesterol",
-        "admission_frequency",
-        "medication_count",
         "comorbidity_burden",
         "gender_0",
         "age_group_0",
-        "age_group_1",
         "hypertension",
-        "diabetes",
-        "previous_cardiac",
-        "smoking",
-        "bmi_missing",
-        "bp_missing",
-        "glucose_missing",
-        "chol_missing"
+        "smoking"
     ]
 }

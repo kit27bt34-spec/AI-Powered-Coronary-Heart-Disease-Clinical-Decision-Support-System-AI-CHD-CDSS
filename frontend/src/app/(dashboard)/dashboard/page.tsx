@@ -35,6 +35,7 @@ import {
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassBadge from "@/components/ui/GlassBadge";
+import RefreshButton from "@/components/ui/RefreshButton";
 
 export default function DashboardHome() {
   const router = useRouter();
@@ -196,7 +197,9 @@ export default function DashboardHome() {
           </p>
         </div>
 
-
+        <div className="flex items-center gap-3">
+          <RefreshButton />
+        </div>
       </div>
 
       {/* KPI Cards */}

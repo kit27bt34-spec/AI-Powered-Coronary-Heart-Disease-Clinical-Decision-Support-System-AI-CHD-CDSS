@@ -1,68 +1,50 @@
-##############################################################################
-# render.yaml — AI-CHD-CDSS Blueprint (Free Tier)
-# DB already created manually — set DATABASE_URL in Render dashboard.
-# Deploy via: Render Dashboard → New → Blueprint
-##############################################################################
-
 services:
-  # ── 1. FastAPI Backend ────────────────────────────────────────────────────
+  # ----------------------------------------------------------------------------
+  # 1. FastAPI REST Backend Service
+  # ----------------------------------------------------------------------------
   - type: web
-    name: chd-backend
-    runtime: python
-    plan: free
+    name: chd-cdss-backend
+    env: python
     region: oregon
-    branch: main
-    buildCommand: pip install -r requirements.txt
-    startCommand: alembic -c backend/alembic.ini upgrade head && python backend/scripts/seed_db.py && uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
-    healthCheckPath: /health
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      # ⚠️ Set this manually in Render dashboard → use the INTERNAL DB URL
-      - key: DATABASE_URL
-        sync: false
-      # Auto-generated secure JWT secret
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: JWT_ALGORITHM
-        value: HS256
-      - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "60"
       - key: ENV
         value: production
       - key: DEBUG
         value: "false"
       - key: PROJECT_NAME
         value: AI-CHD-CDSS
-      - key: RATE_LIMIT_PER_MINUTE
-        value: "100"
-      - key: REDIS_URL
-        value: redis://localhost:6379/0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chd-cdss-postgres
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
       - key: ALLOWED_ORIGINS
-        value: "https://chd-frontend.onrender.com,http://localhost:3000,http://127.0.0.1:3000"
-      - key: PROCESSED_DATA_PATH
-        value: /opt/render/project/src/etl/processed_chd_dataset/processed_20260714_v1.csv
-      - key: MIMIC_DATA_PATH
-        value: /opt/render/project/src/data/mimic
-      - key: PYTHON_VERSION
-        value: "3.12.0"
+        value: "https://chd-cdss-frontend.onrender.com,http://localhost:3000"
 
-  # ── 2. Next.js Frontend ───────────────────────────────────────────────────
+  # ----------------------------------------------------------------------------
+  # 2. Next.js Frontend Web Service
+  # ----------------------------------------------------------------------------
   - type: web
-    name: chd-frontend
-    runtime: node
-    plan: free
+    name: chd-cdss-frontend
+    env: node
     region: oregon
-    branch: main
-    rootDir: frontend
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: npm start
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        value: https://chd-backend.onrender.com
-      - key: NODE_ENV
-        value: production
-      - key: NEXT_TELEMETRY_DISABLED
-        value: "1"
-      - key: NEXT_DISABLE_TURBOPACK
-        value: "1"
-      - key: NODE_VERSION
-        value: "20"
+        value: https://chd-cdss-backend.onrender.com
+
+databases:
+  # ----------------------------------------------------------------------------
+  # 3. Managed PostgreSQL Production Database
+  # ----------------------------------------------------------------------------
+  - name: chd-cdss-postgres
+    region: oregon
+    plan: free
+    databaseName: chd_cdss
+    user: postgres_chd_user

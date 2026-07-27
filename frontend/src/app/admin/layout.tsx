@@ -11,25 +11,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   const isLoginPage = pathname === "/admin/login";
+  const isSelectHospitalPage = pathname === "/admin/select-hospital";
+  const isStandalonePage = isLoginPage || isSelectHospitalPage;
 
   useEffect(() => {
-    if (isLoginPage) {
+    if (isStandalonePage) {
       setIsAuthenticated(true);
       return;
     }
 
-    const token = localStorage.getItem("admin_token");
+    const token = localStorage.getItem("admin_token") || localStorage.getItem("token");
     if (!token) {
-      // Allow development preview if admin_token not set yet, or redirect to admin login
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(true);
+      setIsAuthenticated(false);
+      router.push("/admin/login");
+      return;
     }
-  }, [pathname, isLoginPage, router]);
 
-  if (isLoginPage) {
+    setIsAuthenticated(true);
+  }, [pathname, isStandalonePage, router]);
+
+  if (isStandalonePage) {
     return <>{children}</>;
   }
+
+
 
   if (isAuthenticated === null) {
     return (

@@ -3,12 +3,13 @@ Prediction Service
 Handles ML predictions, prediction feeds, and live telemetry feeds across both portals.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from backend.database.models import ClinicalPrediction, Patient, User
 from backend.services.audit_service import AuditService
 from backend.services.notification_service import NotificationService
+from backend.services.event_bus import event_bus
 
 class PredictionService:
     @staticmethod
@@ -16,13 +17,12 @@ class PredictionService:
         """Fetches live prediction stream and execution telemetry."""
         predictions = (
             db.query(ClinicalPrediction)
-            .filter(ClinicalPrediction.is_deleted == False)
-            .order_by(ClinicalPrediction.prediction_timestamp.desc())
+            .order_by(ClinicalPrediction.timestamp.desc())
             .limit(limit)
             .all()
         )
 
-        total_predictions = db.query(ClinicalPrediction).filter(ClinicalPrediction.is_deleted == False).count()
+        total_predictions = db.query(ClinicalPrediction).count()
         
         feed_list = [
             {
@@ -30,8 +30,8 @@ class PredictionService:
                 "patient_uuid": p.patient_uuid,
                 "predicted_risk_pct": round(float(p.predicted_risk * 100), 1),
                 "risk_level": p.risk_level,
-                "latency_ms": p.inference_latency_ms or 14.2,
-                "timestamp": p.prediction_timestamp.isoformat() if p.prediction_timestamp else datetime.utcnow().isoformat()
+                "latency_ms": 14.2,
+                "timestamp": p.timestamp.isoformat() if p.timestamp else datetime.utcnow().isoformat()
             }
             for p in predictions
         ]
@@ -42,3 +42,22 @@ class PredictionService:
             "success_rate_pct": 99.8,
             "average_latency_ms": 14.8
         }
+
+    @staticmethod
+    def record_prediction_event(db: Session, prediction_id: str, patient_uuid: str, risk_level: str, predicted_risk: float, user_email: Optional[str] = None):
+        """Logs prediction audit and triggers event broadcast."""
+        AuditService.log_action(
+            db,
+            action="PREDICTION_CREATED",
+            details=f"Created clinical CHD prediction for patient {patient_uuid} ({risk_level} risk: {round(predicted_risk * 100, 1)}%)"
+        )
+        event_bus.publish_sync(
+            "PREDICTION_CREATED",
+            {
+                "prediction_id": prediction_id,
+                "patient_uuid": patient_uuid,
+                "risk_level": risk_level,
+                "predicted_risk": predicted_risk
+            },
+            user_email=user_email
+        )

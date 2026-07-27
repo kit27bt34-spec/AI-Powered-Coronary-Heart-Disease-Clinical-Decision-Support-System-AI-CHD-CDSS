@@ -156,11 +156,11 @@ class TrainingPipeline:
             
         # 2. Rows, Admissions, Patients counts
         report["row_count"] = len(df)
-        report["unique_patients"] = df["subject_id"].nunique()
-        report["unique_admissions"] = df["hadm_id"].nunique()
+        report["unique_patients"] = df["subject_id"].nunique() if "subject_id" in df.columns else len(df)
+        report["unique_admissions"] = df["hadm_id"].nunique() if "hadm_id" in df.columns else len(df)
         
         # Check duplicate admissions
-        duplicate_admissions = df["hadm_id"].duplicated().sum()
+        duplicate_admissions = df["hadm_id"].duplicated().sum() if "hadm_id" in df.columns else 0
         report["duplicate_admissions"] = int(duplicate_admissions)
         
         # 3. Class distributions
@@ -358,14 +358,20 @@ class TrainingPipeline:
         
         # 1. Dataset location and metadata checks
         output_dir = self.app_config["etl"]["output_dir"]
-        files = glob.glob(os.path.join(output_dir, "processed_*_v1.parquet"))
-        if not files:
-            files = glob.glob(os.path.join(output_dir, "processed_*_v1.csv"))
-        if not files:
-            raise FileNotFoundError(f"No processed clinical datasets found in {output_dir}")
-            
-        dataset_path = max(files, key=os.path.getmtime)
-        df = pd.read_parquet(dataset_path) if dataset_path.endswith(".parquet") else pd.read_csv(dataset_path)
+        master_csv = "data/raw/master_cardiac_dataset.csv"
+        if os.path.exists(master_csv):
+            dataset_path = master_csv
+            df = pd.read_csv(dataset_path)
+            logger.info(f"Loaded master combined cardiac dataset ({len(df)} rows) from {master_csv}")
+        else:
+            files = glob.glob(os.path.join(output_dir, "processed_*_v1.parquet"))
+            if not files:
+                files = glob.glob(os.path.join(output_dir, "processed_*_v1.csv"))
+            if not files:
+                raise FileNotFoundError(f"No processed clinical datasets found in {output_dir}")
+                
+            dataset_path = max(files, key=os.path.getmtime)
+            df = pd.read_parquet(dataset_path) if dataset_path.endswith(".parquet") else pd.read_csv(dataset_path)
         
         # Check if production-scale dataset or demo dataset
         is_production_dataset = len(df) > 5000

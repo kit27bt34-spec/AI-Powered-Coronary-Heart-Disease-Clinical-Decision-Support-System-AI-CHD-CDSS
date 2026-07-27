@@ -16,9 +16,11 @@ from backend.governance import router as gov_router
 from backend.audits import router as audit_router
 from backend.patients import router as patient_router
 from backend.notifications import router as notification_router
-from backend.reports import router as reports_router
+from backend.reports import router as reports_router, legacy_router as legacy_reports_router
 from backend.profile import router as profile_router
 from backend.admin import router as admin_router
+from backend.health import router as health_router
+from backend.telemetry.metrics import router as metrics_router
 
 # Setup API logging
 logging.basicConfig(
@@ -37,16 +39,26 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=settings.cors_origins + ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    from backend.middleware.api_gateway import api_gateway_middleware
+    return await api_gateway_middleware(request, lambda req: call_next(req))
+
 
 
 # Global Exception Handler
 @app.exception_handler(Exception)
 def global_exception_handler(request: Request, exc: Exception):
+    if request.scope.get("type") == "websocket":
+        raise exc
     logger.error(f"Unhandled system error occurred: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -54,6 +66,7 @@ def global_exception_handler(request: Request, exc: Exception):
             "detail": "A critical system error occurred. Please contact the administrator."
         },
     )
+
 
 
 # Routers registration
@@ -64,8 +77,11 @@ app.include_router(audit_router)
 app.include_router(patient_router)
 app.include_router(notification_router)
 app.include_router(reports_router)
+app.include_router(legacy_reports_router)
 app.include_router(profile_router)
 app.include_router(admin_router)
+app.include_router(health_router)
+app.include_router(metrics_router)
 
 
 # Health check endpoint

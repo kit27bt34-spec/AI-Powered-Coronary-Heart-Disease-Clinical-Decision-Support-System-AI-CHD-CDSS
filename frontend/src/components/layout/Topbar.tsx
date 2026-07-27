@@ -9,6 +9,8 @@ import { Search, Bell, Plus, X, CheckCheck, Clock, User, UserCheck, UserX, HelpC
 import GlassButton from "@/components/ui/GlassButton";
 import { useToast } from "@/providers/ToastProvider";
 
+import RefreshButton from "@/components/ui/RefreshButton";
+
 interface Notification {
   id: string;
   title: string;
@@ -284,7 +286,10 @@ export default function Topbar() {
       </div>
 
       {/* --- Right Section -------------------------------- */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+
+        {/* Global Refresh Button */}
+        <RefreshButton />
 
         {/* Live Date & Ward */}
         <div className="text-right hidden md:block">

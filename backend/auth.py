@@ -4,6 +4,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+
 
 from backend.database.session import get_db
 from backend.database.models import User, DoctorProfile, PendingRegistration
@@ -18,6 +20,7 @@ from backend.schemas import (
     UserResponse,
     LoginRequest,
     TokenResponse,
+    ChangePasswordRequest,
     PendingRegistrationCreate,
     PendingRegistrationResponse,
     PendingRequestAction,
@@ -109,17 +112,25 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    """Logs in an existing user and returns a JWT access token."""
+    """Logs in an existing user (by Email or Username) and returns a JWT access token."""
+    input_str = login_data.email.strip()
+    input_lower = input_str.lower()
+
     user = (
         db.query(User)
-        .filter(User.email == login_data.email, User.is_deleted == False)
+        .filter(
+            (func.lower(User.email) == input_lower) | 
+            (func.lower(User.username) == input_lower),
+            User.is_deleted == False
+        )
         .first()
     )
+
     if not user:
         # Check if there is a pending registration
         pending = (
             db.query(PendingRegistration)
-            .filter(PendingRegistration.email == login_data.email)
+            .filter(func.lower(PendingRegistration.email) == input_lower)
             .first()
         )
         if pending:
@@ -149,18 +160,70 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect email or password",
         )
 
-    if not verify_password(login_data.password, user.password_hash):
+    pwd_input = login_data.password or ""
+    pwd_clean = pwd_input.strip()
+    
+    if not verify_password(pwd_input, user.password_hash) and not verify_password(pwd_clean, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Incorrect email or password",
         )
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account"
-            )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account"
+        )
 
     access_token = create_access_token(subject=user.email)
-    return {"access_token": access_token, "token_type": "bearer", "user": user}
+    must_change = bool(user.must_change_password or user.is_first_login)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "must_change_password": must_change,
+        "user": user
+    }
+
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Allows authenticated user (Hospital Administrator or Doctor) to update their password."""
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match.")
+
+    if verify_password(payload.new_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="New password cannot be the same as the current password.")
+
+    pwd = payload.new_password
+    if len(pwd) < 8 or not any(c.isupper() for c in pwd) or not any(c.islower() for c in pwd) or not any(c.isdigit() for c in pwd) or not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in pwd):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character."
+        )
+
+    current_user.password_hash = get_password_hash(pwd)
+    current_user.is_first_login = False
+    current_user.must_change_password = False
+    db.commit()
+
+
+
+    from backend.services.audit_service import AuditService
+    AuditService.log_action(
+        db,
+        action="PASSWORD_CHANGED",
+        details=f"User {current_user.email} updated password successfully.",
+        user_id=current_user.id
+    )
+
+    return {"message": "Password updated successfully. You now have full access to your workspace."}
 
 
 @router.post(
@@ -349,3 +412,22 @@ def delete_system_user(
     user.is_deleted = True
     user.is_active = False
     db.commit()
+
+
+@router.post("/logout")
+def user_logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Executes backend user logout and logs AuditLog record."""
+    try:
+        from backend.services.audit_service import AuditService
+        AuditService.log_action(
+            db=db,
+            action="USER_LOGOUT",
+            user_id=current_user.id,
+            details=f"User '{current_user.email}' signed out."
+        )
+    except Exception:
+        pass
+    return {"message": "Logged out successfully."}

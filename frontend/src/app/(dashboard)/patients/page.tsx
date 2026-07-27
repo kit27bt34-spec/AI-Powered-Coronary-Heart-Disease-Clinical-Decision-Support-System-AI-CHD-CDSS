@@ -15,11 +15,13 @@ import {
   ChevronRight,
   Plus,
   BrainCircuit,
+  Stethoscope,
   X
 } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassBadge from "@/components/ui/GlassBadge";
+import RefreshButton from "@/components/ui/RefreshButton";
 
 export default function PatientsRegistry() {
   const router = useRouter();
@@ -39,6 +41,8 @@ export default function PatientsRegistry() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [patientName, setPatientName] = useState("");
+  const [careunit, setCareunit] = useState("ICU Bed");
+  const [assignedDoctorId, setAssignedDoctorId] = useState("");
   const [age, setAge] = useState<number | "">("");
   const [gender, setGender] = useState<number | "">("");
   const [bmi, setBmi] = useState<number | "">("");
@@ -62,29 +66,64 @@ export default function PatientsRegistry() {
   const { data: patients, isLoading, error, refetch } = useQuery({
     queryKey: ["patients"],
     queryFn: async () => {
-      const res = await api.get("/api/v1/patients");
+      const hosp = typeof window !== "undefined" ? localStorage.getItem("selected_hospital_name") || "St. Jude Memorial" : "St. Jude Memorial";
+      const slug = hosp.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const res = await api.get(`/api/v1/patients?hospital=${slug}`);
       return res.data;
     },
   });
+
+  // Fetch Bed Capacity Metrics
+  const { data: capacityData, refetch: refetchCapacity } = useQuery({
+    queryKey: ["bedCapacity"],
+    queryFn: async () => {
+      const hosp = typeof window !== "undefined" ? localStorage.getItem("selected_hospital_name") || "St. Jude Memorial" : "St. Jude Memorial";
+      const slug = hosp.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const res = await api.get(`/api/v1/patients/bed-capacity?hospital=${slug}`);
+      return res.data;
+    },
+    enabled: isModalOpen,
+  });
+
+  // Fetch Doctors in current hospital
+  const { data: hospitalDoctors = [] } = useQuery({
+    queryKey: ["hospitalDoctors"],
+    queryFn: async () => {
+      const hosp = typeof window !== "undefined" ? localStorage.getItem("selected_hospital_name") || "St. Jude Memorial" : "St. Jude Memorial";
+      const slug = hosp.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const res = await api.get(`/api/v1/patients/doctors?hospital=${slug}`);
+      return res.data;
+    },
+    enabled: isModalOpen,
+  });
+
+  const selectedUnitKey = careunit.includes("ICU") ? "icu" : careunit.includes("CCU") ? "ccu" : "normal";
+  const selectedUnitCapacity = capacityData?.[selectedUnitKey] || { occupied: 0, total: 20 };
+  const isCapExceeded = selectedUnitCapacity.occupied >= selectedUnitCapacity.total;
 
   const handleSort = (field: "age" | "risk" | "hadm_id") => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortOrder("desc");
+      setSortOrder("asc");
     }
-    setCurrentPage(1);
   };
 
   // Submit Patient Registration to Database
   const handleRegisterPatient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!patientName.trim() || age === "" || gender === "") {
+      toast("Please fill in all mandatory patient fields.", "warning", "Validation Required");
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.post("/api/v1/patients", {
-        name: patientName || null,
-        age: age !== "" ? Number(age) : 0,
+        name: patientName,
+        careunit: careunit || "ICU Bed",
+        assigned_doctor_id: assignedDoctorId || null,
+        age: Number(age),
         gender: gender !== "" ? Number(gender) : 0,
         bmi: bmi !== "" ? Number(bmi) : null,
         systolic_bp: systolicBp !== "" ? Number(systolicBp) : null,
@@ -227,13 +266,16 @@ export default function PatientsRegistry() {
           )}
         </div>
 
-        {/* Register New Patient Trigger */}
-        {user && ["admin", "doctor", "nurse"].includes(user.role.toLowerCase()) && (
-          <GlassButton variant="primary" size="sm" onClick={() => setIsModalOpen(true)} style={{ backgroundColor: "#0F2573", color: "#fff" }}>
-            <Plus className="h-4 w-4" />
-            <span>Register New Patient</span>
-          </GlassButton>
-        )}
+        {/* Action Triggers */}
+        <div className="flex items-center gap-3">
+          <RefreshButton onRefresh={() => { refetch(); refetchCapacity(); }} />
+          {user && ["admin", "doctor", "nurse"].includes(user.role.toLowerCase()) && (
+            <GlassButton variant="primary" size="sm" onClick={() => setIsModalOpen(true)} style={{ backgroundColor: "#0F2573", color: "#fff" }}>
+              <Plus className="h-4 w-4" />
+              <span>Register New Patient</span>
+            </GlassButton>
+          )}
+        </div>
       </div>
 
       {/* Search and Filters deck */}
@@ -324,6 +366,8 @@ export default function PatientsRegistry() {
                     </div>
                   </th>
                   <th className="py-4 px-6">Gender</th>
+                  <th className="py-4 px-6">Bed Option</th>
+                  <th className="py-4 px-6">Assigned Doctor</th>
                   <th className="py-4 px-6">BP Vitals</th>
                   <th className="py-4 px-6 cursor-pointer hover:bg-slate-100/50 transition" onClick={() => handleSort("risk")}>
                     <div className="flex items-center gap-1">
@@ -338,6 +382,8 @@ export default function PatientsRegistry() {
                 {paginatedPatients.length > 0 ? (
                   paginatedPatients.map((p) => {
                     const risk = p.chd_risk_score;
+                    const bedType = p.careunit || "ICU Bed";
+                    const docName = p.assigned_doctor_name || "Unassigned";
                     return (
                       <tr
                         key={p.hadm_id || p.patient_id}
@@ -352,6 +398,23 @@ export default function PatientsRegistry() {
                         <td className="py-3 px-6 font-extrabold text-slate-800">{p.hadm_id}</td>
                         <td className="py-3 px-6">{p.age} yrs</td>
                         <td className="py-3 px-6">{p.gender === 1 ? "Male" : "Female"}</td>
+                        <td className="py-3 px-6 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            bedType.includes("Normal")
+                              ? "bg-slate-100 text-slate-700 border-slate-200"
+                              : bedType.includes("CCU")
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
+                          }`}>
+                            {bedType}
+                          </span>
+                        </td>
+                        <td className="py-3 px-6 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#E8F6FE] text-[#0F2573] border border-[#ADE1FB]">
+                            <Stethoscope className="h-3.5 w-3.5 text-[#266CA9]" />
+                            <span>{docName}</span>
+                          </span>
+                        </td>
                         <td className="py-3 px-6 font-mono text-slate-500">
                           {p.systolic_bp ? `${p.systolic_bp}/${p.diastolic_bp} mmHg` : "N/A"}
                         </td>
@@ -384,7 +447,7 @@ export default function PatientsRegistry() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-slate-400 text-xs font-semibold">
+                    <td colSpan={10} className="py-10 text-center text-slate-400 text-xs font-semibold">
                       No patients matching criteria found in cohort registry.
                     </td>
                   </tr>
@@ -448,24 +511,88 @@ export default function PatientsRegistry() {
               </button>
             </div>
 
+            {/* Live Hospital Bed Capacity Gauge */}
+            {capacityData && (
+              <div className="bg-[#E8F6FE]/50 border border-[#ADE1FB] rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-extrabold text-[#0F2573] uppercase tracking-wider">
+                    {capacityData.hospital_name || "St. Jude Memorial"} Bed Capacity
+                  </span>
+                  <span className="font-mono text-[10px] text-slate-500 font-bold">
+                    Capacity Limit Enforced
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className={`p-2 rounded-lg border text-center transition ${careunit.includes("Normal") ? "bg-white border-[#266CA9] shadow-sm" : "bg-white/50 border-slate-200"}`}>
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">Normal Beds</span>
+                    <span className={`text-xs font-black ${capacityData.normal.occupied >= capacityData.normal.total ? "text-rose-600" : "text-[#0F2573]"}`}>
+                      {capacityData.normal.occupied}/{capacityData.normal.total} Occupied
+                    </span>
+                  </div>
+                  <div className={`p-2 rounded-lg border text-center transition ${careunit.includes("ICU") ? "bg-white border-[#266CA9] shadow-sm" : "bg-white/50 border-slate-200"}`}>
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">ICU Beds</span>
+                    <span className={`text-xs font-black ${capacityData.icu.occupied >= capacityData.icu.total ? "text-rose-600" : "text-[#0F2573]"}`}>
+                      {capacityData.icu.occupied}/{capacityData.icu.total} Occupied
+                    </span>
+                  </div>
+                  <div className={`p-2 rounded-lg border text-center transition ${careunit.includes("CCU") ? "bg-white border-[#266CA9] shadow-sm" : "bg-white/50 border-slate-200"}`}>
+                    <span className="text-[9px] font-bold text-slate-500 block uppercase">CCU Beds</span>
+                    <span className={`text-xs font-black ${capacityData.ccu.occupied >= capacityData.ccu.total ? "text-rose-600" : "text-[#0F2573]"}`}>
+                      {capacityData.ccu.occupied}/{capacityData.ccu.total} Occupied
+                    </span>
+                  </div>
+                </div>
+
+                {isCapExceeded && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-start gap-2 text-rose-700 text-xs font-bold">
+                    <span className="text-sm">⚠️</span>
+                    <div>
+                      <p className="font-extrabold uppercase text-[10px] tracking-wide text-rose-800">Bed Capacity Exceeded</p>
+                      <p className="text-[11px] font-medium text-rose-700 mt-0.5">
+                        {capacityData.hospital_name} has reached its maximum limit of {selectedUnitCapacity.total} {careunit}s ({selectedUnitCapacity.occupied}/{selectedUnitCapacity.total} occupied). Registration is disabled.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Form */}
             <form onSubmit={handleRegisterPatient} className="space-y-4 text-xs font-bold text-[#0F2573]">
               
-              {/* Patient Full Name */}
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 uppercase tracking-wider">Patient Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. John Doe"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  className="w-full bg-[#E8F6FE]/30 border border-[#ADE1FB] rounded-xl px-3 py-2 outline-none focus:border-[#266CA9] text-[#0F2573] font-semibold"
-                />
+              {/* Patient Full Name & Assigned Doctor */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">Patient Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. John Doe"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    className="w-full bg-[#E8F6FE]/30 border border-[#ADE1FB] rounded-xl px-3 py-2 outline-none focus:border-[#266CA9] text-[#0F2573] font-semibold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">Assigned Attending Doctor</label>
+                  <select
+                    value={assignedDoctorId}
+                    onChange={(e) => setAssignedDoctorId(e.target.value)}
+                    className="w-full bg-[#E8F6FE]/30 border border-[#ADE1FB] rounded-xl px-3 py-2 outline-none focus:border-[#266CA9] text-[#0F2573] font-semibold cursor-pointer"
+                  >
+                    <option value="">Auto-Assign (Logged-in Clinician)</option>
+                    {hospitalDoctors.map((doc: any) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.name} ({doc.department})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Core Demographics */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Core Demographics & Bed Option Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-500 uppercase tracking-wider">Patient Age</label>
                   <input
@@ -490,6 +617,19 @@ export default function PatientsRegistry() {
                     <option value="" disabled hidden>Select Gender</option>
                     <option value={1}>Male</option>
                     <option value={0}>Female</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider">Bed Option</label>
+                  <select
+                    value={careunit}
+                    onChange={(e) => setCareunit(e.target.value)}
+                    required
+                    className="w-full bg-[#E8F6FE]/30 border border-[#ADE1FB] rounded-xl px-3 py-2 outline-none focus:border-[#266CA9] text-[#0F2573] font-semibold cursor-pointer"
+                  >
+                    <option value="Normal Bed">Normal Bed (General Ward)</option>
+                    <option value="ICU Bed">ICU Bed (Intensive Care)</option>
+                    <option value="CCU Bed">CCU Bed (Coronary Care)</option>
                   </select>
                 </div>
               </div>
@@ -674,10 +814,10 @@ export default function PatientsRegistry() {
                   type="submit"
                   variant="primary"
                   size="sm"
-                  disabled={isSubmitting}
-                  style={{ backgroundColor: "#0F2573", color: "#fff" }}
+                  disabled={isSubmitting || isCapExceeded}
+                  style={{ backgroundColor: isCapExceeded ? "#94A3B8" : "#0F2573", color: "#fff", cursor: isCapExceeded ? "not-allowed" : "pointer" }}
                 >
-                  {isSubmitting ? "Registering..." : "Submit Registration"}
+                  {isSubmitting ? "Registering..." : isCapExceeded ? "Bed Limit Reached" : "Submit Registration"}
                 </GlassButton>
               </div>
 

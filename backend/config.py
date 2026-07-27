@@ -59,5 +59,23 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
+    def validate_secrets(self) -> None:
+        """Enforces strict security fail-fast validation on startup."""
+        if self.ENV == "production":
+            insecure_defaults = [
+                "your-super-secret-key-change-in-production",
+                "generate_a_very_secure_random_key_here_for_prod",
+                "change-me-in-production"
+            ]
+            if self.JWT_SECRET_KEY in insecure_defaults:
+                raise RuntimeError(
+                    "[SECURITY CRITICAL] Application startup aborted: Insecure JWT_SECRET_KEY default detected in production mode."
+                )
+            if not self.DATABASE_URL or "sqlite" in self.DATABASE_URL.lower():
+                raise RuntimeError(
+                    "[SECURITY CRITICAL] Application startup aborted: Production mode requires a valid PostgreSQL DATABASE_URL."
+                )
+
 
 settings = Settings()
+settings.validate_secrets()

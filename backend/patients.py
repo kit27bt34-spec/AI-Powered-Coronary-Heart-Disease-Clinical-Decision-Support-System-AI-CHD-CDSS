@@ -3,7 +3,7 @@ import sys
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -38,23 +38,36 @@ router = APIRouter(prefix="/api/v1/patients", tags=["ICU Patients Registry"])
 
 @router.get("", response_model=List[Dict[str, Any]])
 def list_patients(
-    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    hospital: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Retrieves all patients formatted for the registry with demographics, vitals, and calibrated risk scores."""
+    from backend.database.models import Hospital
+    
+    # Resolve target hospital_id if hospital query parameter or user hospital_id is present
+    target_hospital_id = current_user.hospital_id
+    if hospital:
+        clean_slug = hospital.lower().replace("-", " ").strip()
+        found_hosp = db.query(Hospital).filter(
+            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+        ).first()
+        if found_hosp:
+            target_hospital_id = found_hosp.id
+
     role = current_user.role.lower()
-    if role in ["admin", "doctor", "nurse", "medical researcher"]:
-        patients = db.query(Patient).filter(Patient.is_deleted == False).all()
-    else:
-        # Assigned Patients roles
-        patients = (
-            db.query(Patient)
-            .join(PatientAssignment, Patient.id == PatientAssignment.patient_id)
-            .filter(
-                PatientAssignment.user_id == current_user.id,
-                Patient.is_deleted == False,
-            )
-            .all()
+    query = db.query(Patient).filter(Patient.is_deleted == False)
+
+    if target_hospital_id:
+        from sqlalchemy import or_
+        query = query.filter(or_(Patient.hospital_id == target_hospital_id, Patient.hospital_id.is_(None)))
+
+    if role not in ["admin", "doctor", "nurse", "medical researcher"]:
+        query = query.join(PatientAssignment, Patient.id == PatientAssignment.patient_id).filter(
+            PatientAssignment.user_id == current_user.id
         )
+
+    patients = query.all()
 
     if not patients:
         return []
@@ -166,15 +179,24 @@ def list_patients(
             p_uuid = "[DE-IDENTIFIED]"
             p_name = "[DE-IDENTIFIED]"
 
+        # Resolve assigned doctor name
+        assigned_doc_name = "Unassigned"
+        if patient.assigned_doctor:
+            dname = patient.assigned_doctor.full_name or patient.assigned_doctor.username or patient.assigned_doctor.email.split("@")[0].capitalize()
+            assigned_doc_name = f"Dr. {dname}" if not dname.startswith("Dr.") else dname
+
         results.append(
             {
                 "patient_id": patient.id,
                 "patient_uuid": p_uuid,
                 "name": p_name,
+                "assigned_doctor_id": str(patient.assigned_doctor_id) if patient.assigned_doctor_id else None,
+                "assigned_doctor_name": assigned_doc_name,
                 "gender": int(patient.gender),
                 "age": int(patient.anchor_age),
                 "admission_id": admission.id,
                 "hadm_id": admission.hadm_id,
+                "careunit": getattr(admission, "careunit", None) or "ICU Bed",
                 "admittime": (
                     admission.admittime.isoformat() if admission.admittime else None
                 ),
@@ -236,6 +258,94 @@ def list_patients(
         )
 
     return results
+
+
+@router.get("/bed-capacity")
+def get_bed_capacity(
+    hospital: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Returns total bed capacity and live occupied count by bed unit (ICU, CCU, Normal)."""
+    from backend.database.models import Hospital
+    target_hospital_id = current_user.hospital_id
+    if hospital:
+        clean_slug = hospital.lower().replace("-", " ").strip()
+        hosp = db.query(Hospital).filter(
+            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+        ).first()
+        if hosp:
+            target_hospital_id = hosp.id
+
+    hosp_obj = None
+    if target_hospital_id:
+        hosp_obj = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
+    if not hosp_obj:
+        hosp_obj = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
+
+    if not hosp_obj:
+        return {"hospital_name": "Hospital", "icu": {"occupied": 0, "total": 20}, "ccu": {"occupied": 0, "total": 15}, "normal": {"occupied": 0, "total": 10}}
+
+    active_admissions = (
+        db.query(Admission)
+        .join(Patient, Admission.patient_id == Patient.id)
+        .filter(
+            Patient.hospital_id == hosp_obj.id,
+            Patient.is_deleted == False,
+            Admission.is_deleted == False
+        )
+        .all()
+    )
+
+    icu_occ = sum(1 for a in active_admissions if a.careunit and "ICU" in a.careunit)
+    ccu_occ = sum(1 for a in active_admissions if a.careunit and "CCU" in a.careunit)
+    normal_occ = sum(1 for a in active_admissions if a.careunit and "Normal" in a.careunit)
+
+    return {
+        "hospital_name": hosp_obj.name,
+        "hospital_code": hosp_obj.code,
+        "icu": {"occupied": icu_occ, "total": hosp_obj.icu_beds or 20},
+        "ccu": {"occupied": ccu_occ, "total": getattr(hosp_obj, "ccu_beds", 20) or 20},
+        "normal": {"occupied": normal_occ, "total": hosp_obj.total_beds or 10}
+    }
+
+
+@router.get("/doctors")
+def get_hospital_doctors(
+    hospital: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Returns list of doctors belonging to the current hospital."""
+    from backend.database.models import Hospital
+    target_hosp_id = current_user.hospital_id
+    if hospital:
+        clean_slug = hospital.lower().replace("-", " ").strip()
+        found_hosp = db.query(Hospital).filter(
+            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+        ).first()
+        if found_hosp:
+            target_hosp_id = found_hosp.id
+
+    query = db.query(User).filter(User.role.ilike("%doctor%"))
+    if target_hosp_id:
+        from sqlalchemy import or_
+        query = query.filter(or_(User.hospital_id == target_hosp_id, User.hospital_id.is_(None)))
+
+    docs = query.all()
+    result = []
+    for d in docs:
+        dept = d.doctor_profile.department if (d.doctor_profile and d.doctor_profile.department) else "Cardiology & CCU"
+        dname = d.doctor_profile.full_name if (d.doctor_profile and d.doctor_profile.full_name) else (d.full_name or d.username or d.email.split("@")[0].capitalize())
+        if not dname.startswith("Dr."):
+            dname = f"Dr. {dname}"
+        result.append({
+            "id": str(d.id),
+            "name": dname,
+            "email": d.email,
+            "department": dept
+        })
+    return result
 
 
 @router.get("/{patient_id}", response_model=Dict[str, Any])
@@ -387,10 +497,65 @@ def register_patient(
     db: Session = Depends(get_db),
 ):
     """Registers a new patient with their initial admission record, vitals and diagnoses."""
+    # 1. Resolve Hospital & Check Capacity Limit
+    from backend.database.models import Hospital
+    target_hospital_id = current_user.hospital_id
+    hospital = None
+    if target_hospital_id:
+        hospital = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
+    if not hospital:
+        hospital = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
+        if hospital:
+            target_hospital_id = hospital.id
+
+    if hospital:
+        careunit = (payload.careunit or "ICU Bed").strip()
+        query = (
+            db.query(Admission)
+            .join(Patient, Admission.patient_id == Patient.id)
+            .filter(
+                Patient.hospital_id == hospital.id,
+                Patient.is_deleted == False,
+                Admission.is_deleted == False
+            )
+        )
+        
+        if "ICU" in careunit:
+            max_beds = hospital.icu_beds or 20
+            occupied = query.filter(Admission.careunit.ilike("%ICU%")).count()
+            unit_label = "ICU Bed"
+        elif "CCU" in careunit:
+            max_beds = getattr(hospital, "ccu_beds", 20) or 20
+            occupied = query.filter(Admission.careunit.ilike("%CCU%")).count()
+            unit_label = "CCU Bed"
+        else:
+            max_beds = hospital.total_beds or 10
+            occupied = query.filter(Admission.careunit.ilike("%Normal%")).count()
+            unit_label = "Normal Bed"
+
+        if occupied >= max_beds:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Bed Capacity Limit Reached: {hospital.name} has reached its maximum allocated {unit_label} limit ({occupied}/{max_beds} beds occupied). No additional patients can be registered until a bed is vacated."
+            )
+
     try:
-        # 1. Create Patient record
+
+        # Resolve assigned doctor UUID
+        doc_uuid = None
+        if payload.assigned_doctor_id:
+            try:
+                doc_uuid = uuid.UUID(payload.assigned_doctor_id)
+            except Exception:
+                doc_uuid = current_user.id
+        elif current_user.role.lower() in ["doctor", "nurse"]:
+            doc_uuid = current_user.id
+
+        # 2. Create Patient record
         patient = Patient(
             patient_uuid=str(uuid.uuid4()),
+            hospital_id=target_hospital_id,
+            assigned_doctor_id=doc_uuid,
             name=payload.name,
             gender=payload.gender,
             anchor_age=payload.age,
@@ -411,6 +576,7 @@ def register_patient(
             patient_id=patient.id,
             hadm_id=next_hadm,
             admittime=datetime.now(),
+            careunit=payload.careunit or "ICU Bed",
             is_deleted=False,
             bmi=payload.bmi,
             systolic_bp=payload.systolic_bp,

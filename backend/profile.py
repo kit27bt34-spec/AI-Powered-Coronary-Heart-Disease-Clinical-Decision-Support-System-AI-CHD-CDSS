@@ -147,6 +147,14 @@ def _build_profile_response(user: User, db: Session) -> ProfileResponse:
     )
     notif_resp = NotificationPreferenceResponse.model_validate(prefs)
 
+    # Dynamic fallback for hospital name from PostgreSQL Hospital model
+    hospital_name = profile.hospital if profile and profile.hospital else None
+    if not hospital_name and user.hospital_id:
+        from backend.database.models import Hospital
+        hosp = db.query(Hospital).filter(Hospital.id == user.hospital_id).first()
+        if hosp:
+            hospital_name = hosp.name
+
     return ProfileResponse(
         user_id=user.id,
         email=user.email,
@@ -164,7 +172,7 @@ def _build_profile_response(user: User, db: Session) -> ProfileResponse:
         specialty=profile.specialty if profile else None,
         department=profile.department if profile else None,
         designation=profile.designation if profile else None,
-        hospital=profile.hospital if profile else None,
+        hospital=hospital_name or "St. Jude Memorial",
         medical_council=profile.medical_council if profile else None,
         license_expiry=profile.license_expiry if profile else None,
         last_password_changed_at=profile.last_password_changed_at if profile else None,

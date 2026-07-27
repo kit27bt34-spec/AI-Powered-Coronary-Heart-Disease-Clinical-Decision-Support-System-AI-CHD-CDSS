@@ -61,6 +61,19 @@ const isMenuItemVisible = (href: string, role: string) => {
   return true;
 };
 
+const getInitials = (name?: string, email?: string) => {
+  if (name && name.trim()) {
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  }
+  if (email && email.trim()) {
+    const username = email.split("@")[0];
+    return username.slice(0, 2).toUpperCase();
+  }
+  return "DR";
+};
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -86,11 +99,21 @@ export default function Sidebar() {
     router.push("/login");
   };
 
+  const getHospitalSlug = () => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("selected_hospital_name");
+      if (saved) return saved.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+    return "st-jude-memorial";
+  };
+
+  const hospitalSlug = getHospitalSlug();
+
   return (
     <aside className="w-64 glass-panel border-r border-slate-200/40 h-screen sticky top-0 flex flex-col justify-between p-4 z-40">
       {/* Brand Header */}
       <div className="space-y-6">
-        <Link href="/dashboard" className="flex items-center gap-3 px-2 py-3 hover:opacity-90 transition">
+        <Link href={`/dashboard?hospital=${hospitalSlug}`} className="flex items-center gap-3 px-2 py-3 hover:opacity-90 transition">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
             <Stethoscope className="h-5 w-5" />
           </div>
@@ -106,10 +129,11 @@ export default function Sidebar() {
         <nav className="space-y-1">
           {visibleMenuItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const hrefWithQuery = `${item.href}?hospital=${hospitalSlug}`;
             return (
               <Link
                 key={item.name}
-                href={item.href}
+                href={hrefWithQuery}
                 className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition duration-200 group ${
                   isActive
                     ? "text-primary bg-blue-500/5"
@@ -134,34 +158,21 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Super Admin Switcher for Admin Roles */}
-        {["admin", "super_admin"].includes(user?.role?.toLowerCase() || "") && (
-          <div className="pt-2">
-            <Link
-              href="/admin/dashboard"
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-indigo-600 via-blue-600 to-blue-700 text-white shadow-md hover:shadow-lg transition group"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-indigo-200" />
-                <span>Super Admin Portal</span>
-              </div>
-            </Link>
-          </div>
-        )}
+
       </div>
 
       {/* Footer Profile & Logout */}
       <div className="space-y-4 pt-4 border-t border-slate-200/50">
         {user && (
           <div className="flex items-center gap-3 px-2 py-1.5">
-            <div className="h-9 w-9 rounded-full bg-blue-500/10 text-primary flex items-center justify-center font-black text-sm uppercase border border-blue-200/30">
-              {user.email.substring(0, 2)}
+            <div className="h-9 w-9 rounded-full bg-blue-500/10 text-primary flex items-center justify-center font-black text-xs uppercase border border-blue-200/40 shrink-0">
+              {getInitials(user.full_name, user.email)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-extrabold text-slate-800 truncate uppercase tracking-tight">
-                {getRoleLabel(user.role)}
+              <p className="text-xs font-black text-slate-800 truncate tracking-tight">
+                {user.full_name || getRoleLabel(user.role)}
               </p>
-              <p className="text-[9px] text-slate-400 truncate">{user.email}</p>
+              <p className="text-[10px] text-slate-400 font-medium truncate">{user.email}</p>
             </div>
           </div>
         )}

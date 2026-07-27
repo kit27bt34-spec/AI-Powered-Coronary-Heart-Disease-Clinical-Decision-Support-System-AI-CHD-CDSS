@@ -31,7 +31,6 @@ const navSections = [
     title: "CLINICAL & PREDICTION",
     items: [
       { href: "/admin/patients", label: "Patient Analytics", icon: Heart },
-      { href: "/admin/predictions", label: "Prediction Feed", icon: Activity },
       { href: "/admin/clinical-analytics", label: "Clinical Intelligence", icon: LineChart },
     ]
   },
@@ -45,9 +44,7 @@ const navSections = [
   {
     title: "INFRASTRUCTURE & MONITORING",
     items: [
-      { href: "/admin/monitoring", label: "System Telemetry", icon: Server },
-      { href: "/admin/database", label: "Database Performance", icon: Database },
-      { href: "/admin/api-monitoring", label: "API Gateway Telemetry", icon: Radio },
+      { href: "/admin/monitoring", label: "System Monitoring", icon: Activity },
       { href: "/admin/security", label: "Security Center", icon: Lock },
       { href: "/admin/audit-logs", label: "System Audit Logs", icon: History },
       { href: "/admin/reports", label: "Executive Reports", icon: FileSpreadsheet },
@@ -81,19 +78,7 @@ export default function AdminSidebar() {
           </div>
         </div>
 
-        {/* Doctor Workspace Link */}
-        <div className="px-3 pt-3">
-          <Link
-            href="/dashboard"
-            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-200/80 hover:bg-indigo-100 transition shadow-2xs group"
-          >
-            <div className="flex items-center gap-2">
-              <Stethoscope className="h-4 w-4 text-indigo-600" />
-              <span>Doctor Workspace</span>
-            </div>
-            <ChevronRight className="h-3.5 w-3.5 text-indigo-600" />
-          </Link>
-        </div>
+
 
         {/* Navigation Items */}
         <div className="p-3 space-y-6 overflow-y-auto max-h-[calc(100vh-190px)] scrollbar-thin scrollbar-thumb-slate-200">

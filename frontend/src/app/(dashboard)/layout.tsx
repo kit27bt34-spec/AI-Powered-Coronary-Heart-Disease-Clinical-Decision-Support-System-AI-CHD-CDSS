@@ -16,10 +16,30 @@ export default function DashboardLayout({
   const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      const mustChange = Boolean(
+        user.must_change_password ||
+        user.is_first_login ||
+        (localStorage.getItem("must_change_password") === "true" && user.must_change_password)
+      );
+      if (mustChange) {
+        router.push("/doctor/change-password");
+      } else {
+        localStorage.removeItem("must_change_password");
+        if (typeof window !== "undefined" && !window.location.search.includes("hospital=")) {
+          const hospName = localStorage.getItem("selected_hospital_name") || "St. Jude Memorial";
+          const slug = hospName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          const newUrl = `${window.location.pathname}?hospital=${slug}`;
+          window.history.replaceState(null, "", newUrl);
+        }
+      }
     }
   }, [user, isLoading, router]);
+
 
   // Loading skeleton screen during initial auth verification
   if (isLoading) {

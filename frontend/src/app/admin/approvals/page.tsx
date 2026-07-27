@@ -4,15 +4,19 @@ import React, { useEffect, useState } from "react";
 import { UserCheck, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import GlassCard from "@/components/ui/GlassCard";
 import GlassButton from "@/components/ui/GlassButton";
-import { api } from "@/lib/api";
+import RefreshButton from "@/components/ui/RefreshButton";
 
 export default function AdminApprovalsPage() {
   const [approvals, setApprovals] = useState<any[]>([]);
 
-  useEffect(() => {
+  const fetchApprovals = () => {
     api.get("/api/v1/admin/approvals")
       .then(res => setApprovals(Array.isArray(res.data) ? res.data : []))
       .catch(err => console.error("Error loading approvals:", err));
+  };
+
+  useEffect(() => {
+    fetchApprovals();
   }, []);
 
   const handleAction = async (id: string, action: string) => {
@@ -29,9 +33,12 @@ export default function AdminApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-black text-slate-900">Pending Registrations & Approvals</h1>
-        <p className="text-xs text-slate-500 font-semibold">Review clinician access requests, verify medical license credentials, and approve accounts</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-xl font-black text-slate-900">Pending Registrations & Approvals</h1>
+          <p className="text-xs text-slate-500 font-semibold">Review clinician access requests, verify medical license credentials, and approve accounts</p>
+        </div>
+        <RefreshButton onRefresh={fetchApprovals} />
       </div>
 
       <div className="space-y-4">

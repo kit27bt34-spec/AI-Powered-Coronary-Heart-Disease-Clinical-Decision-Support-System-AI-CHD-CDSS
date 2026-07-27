@@ -1,0 +1,25 @@
+# AI-CHD-CDSS | Clinical Decision Support System
+
+
+# AI-CHD-CDSS
+SUPER ADMIN PORTAL
+
+## Intelligent Healthcare.Better Decision. Stronger Lives.
+AI-Powered Coronary Heart Disease Clinical Decision Support System for modern healthcare governance
+
+### Secure & Reliable
+Enterprise-grade security for health data
+
+### Real-time Analytics
+Live insights & AI decision support
+
+### Multi-Hospital
+Centralized workspace control
+
+### AI Governance
+Model monitoring & compliance
+
+## Welcome Back!
+Sign in to your Super Admin account
+By signing in, you agree to our [Terms of Service](http://localhost:3000/admin/login) and [Privacy Policy](http://localhost:3000/admin/login)
+© 2026 All rights reserved.
