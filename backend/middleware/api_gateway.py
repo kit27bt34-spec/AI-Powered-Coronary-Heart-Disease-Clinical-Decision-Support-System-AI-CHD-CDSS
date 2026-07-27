@@ -5,7 +5,6 @@ from fastapi import Request, HTTPException, status
 
 logger = logging.getLogger("APIGateway")
 
-@classmethod
 async def api_gateway_middleware(request: Request, call_next):
     """
     Enterprise API Gateway Middleware.
