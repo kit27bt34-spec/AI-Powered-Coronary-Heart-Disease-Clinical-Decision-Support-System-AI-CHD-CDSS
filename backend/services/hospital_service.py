@@ -183,20 +183,25 @@ class HospitalService:
         """Returns all registered hospital workspace facilities with live PostgreSQL counts."""
         hospitals = db.query(Hospital).filter(Hospital.is_deleted == False).all()
         if not hospitals:
-            primary_hospital = Hospital(
-                name="St. Jude Memorial Hospital",
-                code="SJH-01",
-                city="Boston",
-                state="MA",
-                country="United States",
-                status="Active",
-                total_beds=450,
-                icu_beds=60
-            )
-            db.add(primary_hospital)
-            db.commit()
-            db.refresh(primary_hospital)
-            hospitals = [primary_hospital]
+            try:
+                from backend.scripts.seed_db import seed_database
+                seed_database(reset_db=False)
+                hospitals = db.query(Hospital).filter(Hospital.is_deleted == False).all()
+            except Exception as e:
+                primary_hospital = Hospital(
+                    name="St. Jude Memorial Hospital",
+                    code="SJH-01",
+                    city="Boston",
+                    state="MA",
+                    country="United States",
+                    status="Active",
+                    total_beds=450,
+                    icu_beds=60
+                )
+                db.add(primary_hospital)
+                db.commit()
+                db.refresh(primary_hospital)
+                hospitals = [primary_hospital]
 
         result = []
         for h in hospitals:

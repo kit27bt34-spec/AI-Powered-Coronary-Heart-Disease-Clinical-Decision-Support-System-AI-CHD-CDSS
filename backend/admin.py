@@ -1631,23 +1631,9 @@ def get_admin_hospitals(
     current_admin: Optional[User] = Depends(get_optional_admin),
     db: Session = Depends(get_db),
 ):
-    """Returns all hospitals from PostgreSQL with user counts and metadata."""
-    hospitals = db.query(Hospital).filter(Hospital.is_deleted == False).all()
-    res = []
-    for h in hospitals:
-        user_cnt = db.query(User).filter(User.hospital_id == h.id, User.is_deleted == False).count()
-        dept_cnt = db.query(Department).filter(Department.hospital_id == h.id, Department.is_deleted == False).count()
-        res.append({
-            "id": str(h.id),
-            "name": h.name,
-            "code": h.code or "HOSP",
-            "user_count": user_cnt,
-            "departments_count": dept_cnt,
-            "city": h.city or "Boston",
-            "state": h.state or "MA",
-            "status": h.status or "Active",
-        })
-    return res
+    """Returns all hospitals from PostgreSQL with user counts, departments, and metadata."""
+    from backend.services.hospital_service import HospitalService
+    return HospitalService.get_all_hospitals(db)
 
 
 @router.get("/hospitals/{hospital_id}/users")
