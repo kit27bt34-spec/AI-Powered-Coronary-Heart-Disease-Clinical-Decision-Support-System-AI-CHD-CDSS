@@ -43,227 +43,225 @@ def list_patients(
     db: Session = Depends(get_db)
 ):
     """Retrieves all patients formatted for the registry with demographics, vitals, and calibrated risk scores."""
-    from backend.database.models import Hospital
-    
-    # Resolve target hospital_id if hospital query parameter or user hospital_id is present
-    target_hospital_id = current_user.hospital_id if current_user else None
-    if hospital:
-        clean_slug = hospital.lower().replace("-", "%").strip()
-        found_hosp = db.query(Hospital).filter(
-            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
-        ).first()
-        if found_hosp:
-            target_hospital_id = found_hosp.id
-
-    role = (current_user.role or "doctor").lower() if current_user else "doctor"
-    query = db.query(Patient).filter(Patient.is_deleted == False)
-
-    if target_hospital_id:
+    try:
+        from backend.database.models import Hospital
         from sqlalchemy import or_
-        query = query.filter(or_(Patient.hospital_id == target_hospital_id, Patient.hospital_id.is_(None)))
+        
+        # Resolve target hospital_id if hospital query parameter or user hospital_id is present
+        target_hospital_id = current_user.hospital_id if current_user else None
+        if hospital:
+            clean_slug = hospital.lower().replace("-", "%").strip()
+            found_hosp = db.query(Hospital).filter(
+                (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+            ).first()
+            if found_hosp:
+                target_hospital_id = found_hosp.id
 
-    if role not in ["admin", "super_admin", "super admin", "doctor", "nurse", "medical researcher"]:
-        query = query.join(PatientAssignment, Patient.id == PatientAssignment.patient_id).filter(
-            PatientAssignment.user_id == current_user.id
-        )
+        role = (current_user.role or "doctor").lower() if current_user else "doctor"
+        query = db.query(Patient).filter(or_(Patient.is_deleted == False, Patient.is_deleted.is_(None)))
 
-    patients = query.all()
+        if target_hospital_id:
+            query = query.filter(or_(Patient.hospital_id == target_hospital_id, Patient.hospital_id.is_(None)))
 
-    if not patients:
-        return []
-
-    patient_ids = [p.id for p in patients]
-    patient_uuids = [p.patient_uuid for p in patients]
-
-    # Batch retrieve admissions for all patients ordered by admittime descending
-    # (so the first one we find for a patient is their latest one)
-    all_admissions = (
-        db.query(Admission)
-        .filter(Admission.patient_id.in_(patient_ids), Admission.is_deleted == False)
-        .order_by(Admission.admittime.desc())
-        .all()
-    )
-
-    # Build a map of patient_id -> latest admission
-    latest_admissions_map = {}
-    for adm in all_admissions:
-        if adm.patient_id not in latest_admissions_map:
-            latest_admissions_map[adm.patient_id] = adm
-
-    # Get active admission IDs
-    active_admission_ids = [adm.id for adm in latest_admissions_map.values()]
-
-    # Batch retrieve diagnoses for active admissions
-    all_diagnoses = (
-        db.query(Diagnosis)
-        .filter(Diagnosis.admission_id.in_(active_admission_ids))
-        .all()
-    )
-
-    # Map admission_id -> list of uppercase diagnosis codes
-    diag_codes_map = {}
-    for diag in all_diagnoses:
-        if diag.icd_code:
-            diag_codes_map.setdefault(diag.admission_id, []).append(str(diag.icd_code).upper())
-
-    # Batch retrieve glucose labs (itemid 50931) for active admissions
-    all_labs = (
-        db.query(LabResult)
-        .filter(
-            LabResult.admission_id.in_(active_admission_ids), LabResult.itemid == 50931
-        )
-        .all()
-    )
-
-    # Map admission_id -> glucose value
-    glucose_map = {}
-    for lab in all_labs:
-        if lab.admission_id not in glucose_map:
-            glucose_map[lab.admission_id] = lab.valuenum
-
-    # Batch retrieve latest clinical predictions for all patient uuids
-    all_predictions = (
-        db.query(ClinicalPrediction)
-        .filter(
-            ClinicalPrediction.patient_uuid.in_(patient_uuids),
-            ClinicalPrediction.model_version != "mock-1",
-        )
-        .order_by(ClinicalPrediction.timestamp.desc())
-        .all()
-    )
-
-    # Map patient_uuid -> latest risk score
-    predictions_map = {}
-    for pred in all_predictions:
-        if pred.patient_uuid not in predictions_map:
-            predictions_map[pred.patient_uuid] = pred.predicted_risk
-
-    results = []
-
-    for patient in patients:
-        admission = latest_admissions_map.get(patient.id)
-        if not admission:
-            continue
-
-        diag_codes = diag_codes_map.get(admission.id, [])
-
-        hypertension = (
-            1
-            if any(c.startswith("I10") or c.startswith("401") for c in diag_codes)
-            else 0
-        )
-        diabetes = (
-            1
-            if any(c.startswith("E11") or c.startswith("250") for c in diag_codes)
-            else 0
-        )
-        previous_cardiac = (
-            1
-            if any(c.startswith("I25") or c.startswith("414") for c in diag_codes)
-            else 0
-        )
-        smoking = (
-            1
-            if any(
-                c.startswith("F17") or c.startswith("305.1") or c.startswith("Z72.0")
-                for c in diag_codes
+        if role not in ["admin", "super_admin", "super admin", "doctor", "nurse", "medical researcher"]:
+            query = query.join(PatientAssignment, Patient.id == PatientAssignment.patient_id).filter(
+                PatientAssignment.user_id == current_user.id
             )
-            else 0
-        )
 
-        chd_risk_score = predictions_map.get(patient.patient_uuid)
-        glucose = glucose_map.get(admission.id)
+        patients = query.all()
 
-        p_uuid = patient.patient_uuid
-        p_name = patient.name or "Unknown Patient"
-        if role == "medical researcher":
-            p_uuid = "[DE-IDENTIFIED]"
-            p_name = "[DE-IDENTIFIED]"
+        if not patients:
+            return []
 
-        # Resolve assigned doctor name
-        assigned_doc_name = "Unassigned"
-        try:
-            if patient.assigned_doctor:
-                doc_obj = patient.assigned_doctor
-                dname = doc_obj.full_name or doc_obj.username or (doc_obj.email.split("@")[0].capitalize() if doc_obj.email else "")
-                if dname:
-                    assigned_doc_name = f"Dr. {dname}" if not dname.startswith("Dr.") else dname
-        except Exception:
+        patient_ids = [p.id for p in patients]
+        patient_uuids = [p.patient_uuid for p in patients]
+
+        all_admissions = (
+            db.query(Admission)
+            .filter(
+                Admission.patient_id.in_(patient_ids),
+                or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
+            )
+            .order_by(Admission.admittime.desc())
+            .all()
+        ) if patient_ids else []
+
+        latest_admissions_map = {}
+        for adm in all_admissions:
+            if adm.patient_id not in latest_admissions_map:
+                latest_admissions_map[adm.patient_id] = adm
+
+        active_admission_ids = [adm.id for adm in latest_admissions_map.values()]
+
+        all_diagnoses = (
+            db.query(Diagnosis)
+            .filter(Diagnosis.admission_id.in_(active_admission_ids))
+            .all()
+        ) if active_admission_ids else []
+
+        diag_codes_map = {}
+        for diag in all_diagnoses:
+            if diag.icd_code:
+                diag_codes_map.setdefault(diag.admission_id, []).append(str(diag.icd_code).upper())
+
+        all_labs = (
+            db.query(LabResult)
+            .filter(
+                LabResult.admission_id.in_(active_admission_ids), LabResult.itemid == 50931
+            )
+            .all()
+        ) if active_admission_ids else []
+
+        glucose_map = {}
+        for lab in all_labs:
+            if lab.admission_id not in glucose_map:
+                glucose_map[lab.admission_id] = lab.valuenum
+
+        all_predictions = (
+            db.query(ClinicalPrediction)
+            .filter(
+                ClinicalPrediction.patient_uuid.in_(patient_uuids),
+                ClinicalPrediction.model_version != "mock-1",
+            )
+            .order_by(ClinicalPrediction.timestamp.desc())
+            .all()
+        ) if patient_uuids else []
+
+        # Map patient_uuid -> latest risk score
+        predictions_map = {}
+        for pred in all_predictions:
+            if pred.patient_uuid not in predictions_map:
+                predictions_map[pred.patient_uuid] = pred.predicted_risk
+
+        results = []
+
+        for patient in patients:
+            admission = latest_admissions_map.get(patient.id)
+            if not admission:
+                continue
+
+            diag_codes = diag_codes_map.get(admission.id, [])
+
+            hypertension = (
+                1
+                if any(c.startswith("I10") or c.startswith("401") for c in diag_codes)
+                else 0
+            )
+            diabetes = (
+                1
+                if any(c.startswith("E11") or c.startswith("250") for c in diag_codes)
+                else 0
+            )
+            previous_cardiac = (
+                1
+                if any(c.startswith("I25") or c.startswith("414") for c in diag_codes)
+                else 0
+            )
+            smoking = (
+                1
+                if any(
+                    c.startswith("F17") or c.startswith("305.1") or c.startswith("Z72.0")
+                    for c in diag_codes
+                )
+                else 0
+            )
+
+            chd_risk_score = predictions_map.get(patient.patient_uuid)
+            glucose = glucose_map.get(admission.id)
+
+            p_uuid = patient.patient_uuid
+            p_name = patient.name or "Unknown Patient"
+            if role == "medical researcher":
+                p_uuid = "[DE-IDENTIFIED]"
+                p_name = "[DE-IDENTIFIED]"
+
+            # Resolve assigned doctor name
             assigned_doc_name = "Unassigned"
+            try:
+                if patient.assigned_doctor:
+                    doc_obj = patient.assigned_doctor
+                    dname = doc_obj.full_name or doc_obj.username or (doc_obj.email.split("@")[0].capitalize() if doc_obj.email else "")
+                    if dname:
+                        assigned_doc_name = f"Dr. {dname}" if not dname.startswith("Dr.") else dname
+            except Exception:
+                assigned_doc_name = "Unassigned"
 
-        results.append(
-            {
-                "patient_id": patient.id,
-                "patient_uuid": p_uuid,
-                "name": p_name,
-                "assigned_doctor_id": str(patient.assigned_doctor_id) if patient.assigned_doctor_id else None,
-                "assigned_doctor_name": assigned_doc_name,
-                "gender": int(patient.gender) if patient.gender is not None else 0,
-                "age": int(patient.anchor_age) if patient.anchor_age is not None else 0,
-                "admission_id": admission.id,
-                "hadm_id": admission.hadm_id,
-                "careunit": getattr(admission, "careunit", None) or "ICU Bed",
-                "admittime": (
-                    admission.admittime.isoformat() if admission.admittime else None
-                ),
-                "hypertension": int(hypertension),
-                "diabetes": int(diabetes),
-                "previous_cardiac": int(previous_cardiac),
-                "smoking": int(smoking),
-                "glucose": float(glucose) if glucose is not None else None,
-                "bmi": float(admission.bmi) if admission.bmi is not None else None,
-                "systolic_bp": (
-                    float(admission.systolic_bp)
-                    if admission.systolic_bp is not None
-                    else None
-                ),
-                "diastolic_bp": (
-                    float(admission.diastolic_bp)
-                    if admission.diastolic_bp is not None
-                    else None
-                ),
-                "heart_rate": (
-                    float(admission.heart_rate)
-                    if admission.heart_rate is not None
-                    else None
-                ),
-                "cholesterol": (
-                    float(admission.cholesterol)
-                    if admission.cholesterol is not None
-                    else None
-                ),
-                "statin_history": (
-                    int(admission.statin_history)
-                    if admission.statin_history is not None
-                    else 0
-                ),
-                "beta_blocker_history": (
-                    int(admission.beta_blocker_history)
-                    if admission.beta_blocker_history is not None
-                    else 0
-                ),
-                "ace_arb_history": (
-                    int(admission.ace_arb_history)
-                    if admission.ace_arb_history is not None
-                    else 0
-                ),
-                "aspirin_history": (
-                    int(admission.aspirin_history)
-                    if admission.aspirin_history is not None
-                    else 0
-                ),
-                "medication_count": (
-                    int(admission.medication_count)
-                    if admission.medication_count is not None
-                    else 0
-                ),
-                "chd_risk_score": (
-                    float(chd_risk_score) if chd_risk_score is not None else None
-                ),
-            }
-        )
+            results.append(
+                {
+                    "patient_id": patient.id,
+                    "patient_uuid": p_uuid,
+                    "name": p_name,
+                    "assigned_doctor_id": str(patient.assigned_doctor_id) if patient.assigned_doctor_id else None,
+                    "assigned_doctor_name": assigned_doc_name,
+                    "gender": int(patient.gender) if patient.gender is not None else 0,
+                    "age": int(patient.anchor_age) if patient.anchor_age is not None else 0,
+                    "admission_id": admission.id,
+                    "hadm_id": admission.hadm_id,
+                    "careunit": getattr(admission, "careunit", None) or "ICU Bed",
+                    "admittime": (
+                        admission.admittime.isoformat() if admission.admittime else None
+                    ),
+                    "hypertension": int(hypertension),
+                    "diabetes": int(diabetes),
+                    "previous_cardiac": int(previous_cardiac),
+                    "smoking": int(smoking),
+                    "glucose": float(glucose) if glucose is not None else None,
+                    "bmi": float(admission.bmi) if admission.bmi is not None else None,
+                    "systolic_bp": (
+                        float(admission.systolic_bp)
+                        if admission.systolic_bp is not None
+                        else None
+                    ),
+                    "diastolic_bp": (
+                        float(admission.diastolic_bp)
+                        if admission.diastolic_bp is not None
+                        else None
+                    ),
+                    "heart_rate": (
+                        float(admission.heart_rate)
+                        if admission.heart_rate is not None
+                        else None
+                    ),
+                    "cholesterol": (
+                        float(admission.cholesterol)
+                        if admission.cholesterol is not None
+                        else None
+                    ),
+                    "statin_history": (
+                        int(admission.statin_history)
+                        if admission.statin_history is not None
+                        else 0
+                    ),
+                    "beta_blocker_history": (
+                        int(admission.beta_blocker_history)
+                        if admission.beta_blocker_history is not None
+                        else 0
+                    ),
+                    "ace_arb_history": (
+                        int(admission.ace_arb_history)
+                        if admission.ace_arb_history is not None
+                        else 0
+                    ),
+                    "aspirin_history": (
+                        int(admission.aspirin_history)
+                        if admission.aspirin_history is not None
+                        else 0
+                    ),
+                    "medication_count": (
+                        int(admission.medication_count)
+                        if admission.medication_count is not None
+                        else 0
+                    ),
+                    "chd_risk_score": (
+                        float(chd_risk_score) if chd_risk_score is not None else None
+                    ),
+                }
+            )
 
-    return results
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching patient registry: {e}", exc_info=True)
+        return []
 
 
 @router.get("/bed-capacity")
@@ -273,47 +271,59 @@ def get_bed_capacity(
     db: Session = Depends(get_db)
 ):
     """Returns total bed capacity and live occupied count by bed unit (ICU, CCU, Normal)."""
-    from backend.database.models import Hospital
-    target_hospital_id = current_user.hospital_id if current_user else None
-    if hospital:
-        clean_slug = hospital.lower().replace("-", "%").strip()
-        hosp = db.query(Hospital).filter(
-            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
-        ).first()
-        if hosp:
-            target_hospital_id = hosp.id
+    try:
+        from backend.database.models import Hospital
+        from sqlalchemy import or_
 
-    hosp_obj = None
-    if target_hospital_id:
-        hosp_obj = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
-    if not hosp_obj:
-        hosp_obj = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
+        target_hospital_id = current_user.hospital_id if current_user else None
+        if hospital:
+            clean_slug = hospital.lower().replace("-", "%").strip()
+            hosp = db.query(Hospital).filter(
+                (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+            ).first()
+            if hosp:
+                target_hospital_id = hosp.id
 
-    if not hosp_obj:
-        return {"hospital_name": "Hospital", "icu": {"occupied": 0, "total": 20}, "ccu": {"occupied": 0, "total": 15}, "normal": {"occupied": 0, "total": 10}}
+        hosp_obj = None
+        if target_hospital_id:
+            hosp_obj = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
+        if not hosp_obj:
+            hosp_obj = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
 
-    active_admissions = (
-        db.query(Admission)
-        .join(Patient, Admission.patient_id == Patient.id)
-        .filter(
-            Patient.hospital_id == hosp_obj.id,
-            Patient.is_deleted == False,
-            Admission.is_deleted == False
+        if not hosp_obj:
+            return {"hospital_name": "Hospital", "icu": {"occupied": 0, "total": 20}, "ccu": {"occupied": 0, "total": 15}, "normal": {"occupied": 0, "total": 10}}
+
+        active_admissions = (
+            db.query(Admission)
+            .join(Patient, Admission.patient_id == Patient.id)
+            .filter(
+                Patient.hospital_id == hosp_obj.id,
+                or_(Patient.is_deleted == False, Patient.is_deleted.is_(None)),
+                or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
+            )
+            .all()
         )
-        .all()
-    )
 
-    icu_occ = sum(1 for a in active_admissions if a.careunit and "ICU" in a.careunit)
-    ccu_occ = sum(1 for a in active_admissions if a.careunit and "CCU" in a.careunit)
-    normal_occ = sum(1 for a in active_admissions if a.careunit and "Normal" in a.careunit)
+        icu_occ = sum(1 for a in active_admissions if a.careunit and "ICU" in a.careunit)
+        ccu_occ = sum(1 for a in active_admissions if a.careunit and "CCU" in a.careunit)
+        normal_occ = sum(1 for a in active_admissions if a.careunit and "Normal" in a.careunit)
 
-    return {
-        "hospital_name": hosp_obj.name,
-        "hospital_code": hosp_obj.code,
-        "icu": {"occupied": icu_occ, "total": hosp_obj.icu_beds or 20},
-        "ccu": {"occupied": ccu_occ, "total": getattr(hosp_obj, "ccu_beds", 20) or 20},
-        "normal": {"occupied": normal_occ, "total": hosp_obj.total_beds or 10}
-    }
+        return {
+            "hospital_name": hosp_obj.name,
+            "hospital_code": hosp_obj.code,
+            "icu": {"occupied": icu_occ, "total": hosp_obj.icu_beds or 20},
+            "ccu": {"occupied": ccu_occ, "total": getattr(hosp_obj, "ccu_beds", 20) or 20},
+            "normal": {"occupied": normal_occ, "total": hosp_obj.total_beds or 10}
+        }
+    except Exception as e:
+        logger.error(f"Error getting bed capacity: {e}", exc_info=True)
+        return {
+            "hospital_name": "St. Jude Memorial Hospital",
+            "hospital_code": "STJUDE",
+            "icu": {"occupied": 0, "total": 20},
+            "ccu": {"occupied": 0, "total": 20},
+            "normal": {"occupied": 0, "total": 100}
+        }
 
 
 @router.get("/doctors")

@@ -177,13 +177,14 @@ class PendingRegistrationCreate(BaseModel):
 class PendingRegistrationResponse(BaseModel):
     id: uuid.UUID
     email: str
-    role: str
-    license_number: str
-    specialty: str
-    department: str
-    status: str
+    full_name: Optional[str] = None
+    role: Optional[str] = "doctor"
+    license_number: Optional[str] = None
+    specialty: Optional[str] = None
+    department: Optional[str] = None
+    status: Optional[str] = "Pending"
     info_request_notes: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

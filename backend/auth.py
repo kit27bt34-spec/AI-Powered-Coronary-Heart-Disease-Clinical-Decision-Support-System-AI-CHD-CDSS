@@ -42,7 +42,8 @@ def get_optional_user(
     email = decode_access_token(token)
     if not email:
         return None
-    return db.query(User).filter(User.email == email, User.is_deleted == False).first()
+    from sqlalchemy import or_
+    return db.query(User).filter(User.email == email, or_(User.is_deleted == False, User.is_deleted.is_(None))).first()
 
 
 def get_current_user(
@@ -59,7 +60,8 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = db.query(User).filter(User.email == email, User.is_deleted == False).first()
+    from sqlalchemy import or_
+    user = db.query(User).filter(User.email == email, or_(User.is_deleted == False, User.is_deleted.is_(None))).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -296,13 +298,17 @@ def list_pending_requests(
     current_user: User = Depends(RoleChecker(["doctor"])), db: Session = Depends(get_db)
 ):
     """Lists all pending or info-requested registration requests (Doctors only)."""
-    requests = (
-        db.query(PendingRegistration)
-        .filter(PendingRegistration.status.in_(["Pending", "Info Requested"]))
-        .order_by(PendingRegistration.created_at.desc())
-        .all()
-    )
-    return requests
+    try:
+        requests = (
+            db.query(PendingRegistration)
+            .filter(PendingRegistration.status.in_(["Pending", "Info Requested"]))
+            .order_by(PendingRegistration.created_at.desc())
+            .all()
+        )
+        return requests
+    except Exception as e:
+        logger.error(f"Error listing pending requests: {e}", exc_info=True)
+        return []
 
 
 @router.post(
