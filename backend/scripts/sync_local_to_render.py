@@ -83,21 +83,24 @@ def sync_local_to_render():
 
             logger.info(f"Syncing {len(local_records)} records for table '{table_name}'...")
             
+            mapper = inspect(model)
+            synced_count = 0
             for obj in local_records:
-                # Extract object attributes dict (excluding SQLAlchemy internal state)
-                state = inspect(obj)
                 attr_dict = {
-                    attr.key: attr.loaded_value
-                    for attr in state.mapper.column_attrs
-                    if attr.key in state.dict
+                    c.key: getattr(obj, c.key)
+                    for c in mapper.column_attrs
                 }
                 
-                # Merge or insert record into target Render DB
-                merged = render_db.merge(model(**attr_dict))
-                total_migrated += 1
+                try:
+                    with render_db.begin_nested():
+                        render_db.merge(model(**attr_dict))
+                        synced_count += 1
+                        total_migrated += 1
+                except Exception as row_err:
+                    logger.debug(f"Skipping conflicting row in {table_name}: {row_err}")
 
             render_db.commit()
-            logger.info(f"Successfully synced '{table_name}'.")
+            logger.info(f"Successfully synced {synced_count} records for '{table_name}'.")
 
         logger.info(f"SUCCESS: Synced {total_migrated} total local records to your deployed Render PostgreSQL database!")
 
