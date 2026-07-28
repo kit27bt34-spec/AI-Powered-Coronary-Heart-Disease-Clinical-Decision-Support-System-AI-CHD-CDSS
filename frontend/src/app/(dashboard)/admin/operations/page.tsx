@@ -22,7 +22,8 @@ export default function OperationsDashboard() {
   const fetchOperationsTelemetry = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/health/ready");
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${baseUrl}/health/ready`);
       if (res.ok) {
         const data = await res.json();
         setOpsData((prev: any) => ({

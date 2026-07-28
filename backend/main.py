@@ -85,6 +85,16 @@ app.include_router(metrics_router)
 
 
 # Health check endpoint
+@app.get("/", tags=["System Checks"])
+def root_check():
+    """Root API health check endpoint."""
+    return {
+        "status": "healthy",
+        "project": settings.PROJECT_NAME,
+        "docs": "/docs",
+        "environment": settings.ENV,
+    }
+
 @app.get("/health", tags=["System Checks"])
 def health_check():
     """Checks the API service status."""
