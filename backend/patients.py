@@ -48,21 +48,21 @@ def list_patients(
     # Resolve target hospital_id if hospital query parameter or user hospital_id is present
     target_hospital_id = current_user.hospital_id
     if hospital:
-        clean_slug = hospital.lower().replace("-", " ").strip()
+        clean_slug = hospital.lower().replace("-", "%").strip()
         found_hosp = db.query(Hospital).filter(
             (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
         ).first()
         if found_hosp:
             target_hospital_id = found_hosp.id
 
-    role = current_user.role.lower()
+    role = (current_user.role or "").lower()
     query = db.query(Patient).filter(Patient.is_deleted == False)
 
     if target_hospital_id:
         from sqlalchemy import or_
         query = query.filter(or_(Patient.hospital_id == target_hospital_id, Patient.hospital_id.is_(None)))
 
-    if role not in ["admin", "doctor", "nurse", "medical researcher"]:
+    if role not in ["admin", "super_admin", "super admin", "doctor", "nurse", "medical researcher"]:
         query = query.join(PatientAssignment, Patient.id == PatientAssignment.patient_id).filter(
             PatientAssignment.user_id == current_user.id
         )
