@@ -113,7 +113,7 @@ export default function Sidebar() {
     <aside className="w-64 glass-panel border-r border-slate-200/40 h-screen sticky top-0 flex flex-col justify-between p-4 z-40">
       {/* Brand Header */}
       <div className="space-y-6">
-        <Link href={`/dashboard?hospital=${hospitalSlug}`} className="flex items-center gap-3 px-2 py-3 hover:opacity-90 transition">
+        <Link prefetch={false} href={`/dashboard?hospital=${hospitalSlug}`} className="flex items-center gap-3 px-2 py-3 hover:opacity-90 transition">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
             <Stethoscope className="h-5 w-5" />
           </div>
@@ -133,6 +133,7 @@ export default function Sidebar() {
             return (
               <Link
                 key={item.name}
+                prefetch={false}
                 href={hrefWithQuery}
                 className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition duration-200 group ${
                   isActive

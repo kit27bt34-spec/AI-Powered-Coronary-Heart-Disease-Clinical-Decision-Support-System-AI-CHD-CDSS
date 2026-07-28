@@ -35,45 +35,49 @@ def list_model_artifacts(
     db: Session = Depends(get_db),
 ):
     """Lists all model versions logged in the registry database."""
-    # Retrieve all model artifacts from DB
-    artifacts = db.query(ModelRegistry).order_by(ModelRegistry.created_at.desc()).all()
+    try:
+        # Retrieve all model artifacts from DB
+        artifacts = db.query(ModelRegistry).order_by(ModelRegistry.created_at.desc()).all()
 
-    # If database has no model artifacts logged, let's sync/seed from MLflow to populate it!
-    if not artifacts:
-        try:
-            mlflow.set_tracking_uri("sqlite:///mlflow.db")
-            client = mlflow.tracking.MlflowClient()
-            name = "CHD_Coronary_Heart_Disease_Risk_Model"
-            latest_versions = client.get_latest_versions(
-                name, stages=["Staging", "Production"]
-            )
+        # If database has no model artifacts logged, let's sync/seed from MLflow to populate it!
+        if not artifacts:
+            try:
+                mlflow.set_tracking_uri("sqlite:///mlflow.db")
+                client = mlflow.tracking.MlflowClient()
+                name = "CHD_Coronary_Heart_Disease_Risk_Model"
+                latest_versions = client.get_latest_versions(
+                    name, stages=["Staging", "Production"]
+                )
 
-            for v in latest_versions:
-                # Check if it already exists in DB
-                existing = db.query(ModelRegistry).filter_by(run_id=v.run_id).first()
-                if not existing:
-                    # Dynamically retrieve performance metrics from MLflow run
-                    try:
-                        run = client.get_run(v.run_id)
-                        metrics = run.data.metrics
-                    except Exception:
-                        metrics = {}
-                    art = ModelRegistry(
-                        model_uuid=v.source.split("/")[-1],
-                        version=str(v.version),
-                        run_id=v.run_id,
-                        status=v.current_stage,
-                        performance_metrics_json=metrics,
-                    )
-                    db.add(art)
-            db.commit()
-            artifacts = (
-                db.query(ModelRegistry).order_by(ModelRegistry.created_at.desc()).all()
-            )
-        except Exception as e:
-            logger.error(f"Failed to sync with MLflow: {e}")
+                for v in latest_versions:
+                    # Check if it already exists in DB
+                    existing = db.query(ModelRegistry).filter_by(run_id=v.run_id).first()
+                    if not existing:
+                        # Dynamically retrieve performance metrics from MLflow run
+                        try:
+                            run = client.get_run(v.run_id)
+                            metrics = run.data.metrics
+                        except Exception:
+                            metrics = {}
+                        art = ModelRegistry(
+                            model_uuid=v.source.split("/")[-1],
+                            version=str(v.version),
+                            run_id=v.run_id,
+                            status=v.current_stage,
+                            performance_metrics_json=metrics,
+                        )
+                        db.add(art)
+                db.commit()
+                artifacts = (
+                    db.query(ModelRegistry).order_by(ModelRegistry.created_at.desc()).all()
+                )
+            except Exception as e:
+                logger.error(f"Failed to sync with MLflow: {e}")
 
-    return artifacts
+        return artifacts
+    except Exception as e:
+        logger.error(f"Error fetching model artifacts: {e}")
+        return []
 
 
 @router.post("/{model_id}/approve", response_model=ModelApprovalResponse)

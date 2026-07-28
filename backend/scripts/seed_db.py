@@ -202,6 +202,21 @@ def seed_database(reset_db: bool = False):
                 safe_execute("ALTER TABLE doctor_profiles ADD COLUMN created_by UUID;")
                 safe_execute("ALTER TABLE doctor_profiles ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
                 safe_execute("ALTER TABLE doctor_profiles ADD COLUMN updated_by UUID;")
+
+                # Model Registry columns auto-migration
+                safe_execute("ALTER TABLE model_registry ADD COLUMN model_name VARCHAR(100) DEFAULT 'CatBoost-CHD-Classifier';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN model_version VARCHAR(50) DEFAULT 'v1.0.0';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN version VARCHAR(50) DEFAULT 'v1.0.0';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN run_id VARCHAR(100) DEFAULT 'run_cb_prod_9921';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN git_commit VARCHAR(100);")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN docker_version VARCHAR(100);")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN val_auc FLOAT DEFAULT 0.763;")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN cv_auc FLOAT DEFAULT 0.758;")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN comments TEXT;")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN performance_metrics_json JSON DEFAULT '{}';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN status VARCHAR(50) DEFAULT 'Production';")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+                safe_execute("ALTER TABLE model_registry ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
         except Exception as e:
             logger.warning(f"DDL migration execution warning: {e}")
         # 1. Seed Roles
