@@ -103,7 +103,8 @@ def list_patients(
     # Map admission_id -> list of uppercase diagnosis codes
     diag_codes_map = {}
     for diag in all_diagnoses:
-        diag_codes_map.setdefault(diag.admission_id, []).append(diag.icd_code.upper())
+        if diag.icd_code:
+            diag_codes_map.setdefault(diag.admission_id, []).append(str(diag.icd_code).upper())
 
     # Batch retrieve glucose labs (itemid 50931) for active admissions
     all_labs = (
@@ -181,9 +182,14 @@ def list_patients(
 
         # Resolve assigned doctor name
         assigned_doc_name = "Unassigned"
-        if patient.assigned_doctor:
-            dname = patient.assigned_doctor.full_name or patient.assigned_doctor.username or patient.assigned_doctor.email.split("@")[0].capitalize()
-            assigned_doc_name = f"Dr. {dname}" if not dname.startswith("Dr.") else dname
+        try:
+            if patient.assigned_doctor:
+                doc_obj = patient.assigned_doctor
+                dname = doc_obj.full_name or doc_obj.username or (doc_obj.email.split("@")[0].capitalize() if doc_obj.email else "")
+                if dname:
+                    assigned_doc_name = f"Dr. {dname}" if not dname.startswith("Dr.") else dname
+        except Exception:
+            assigned_doc_name = "Unassigned"
 
         results.append(
             {
@@ -192,8 +198,8 @@ def list_patients(
                 "name": p_name,
                 "assigned_doctor_id": str(patient.assigned_doctor_id) if patient.assigned_doctor_id else None,
                 "assigned_doctor_name": assigned_doc_name,
-                "gender": int(patient.gender),
-                "age": int(patient.anchor_age),
+                "gender": int(patient.gender) if patient.gender is not None else 0,
+                "age": int(patient.anchor_age) if patient.anchor_age is not None else 0,
                 "admission_id": admission.id,
                 "hadm_id": admission.hadm_id,
                 "careunit": getattr(admission, "careunit", None) or "ICU Bed",
@@ -390,7 +396,7 @@ def get_patient(
         )
 
     diagnoses = db.query(Diagnosis).filter(Diagnosis.admission_id == admission.id).all()
-    diag_codes = [d.icd_code.upper() for d in diagnoses]
+    diag_codes = [str(d.icd_code).upper() for d in diagnoses if d.icd_code]
 
     hypertension = (
         1 if any(c.startswith("I10") or c.startswith("401") for c in diag_codes) else 0
@@ -438,8 +444,8 @@ def get_patient(
         "patient_id": patient.id,
         "patient_uuid": p_uuid,
         "name": p_name,
-        "gender": int(patient.gender),
-        "age": int(patient.anchor_age),
+        "gender": int(patient.gender) if patient.gender is not None else 0,
+        "age": int(patient.anchor_age) if patient.anchor_age is not None else 0,
         "admission_id": admission.id,
         "hadm_id": admission.hadm_id,
         "admittime": admission.admittime.isoformat() if admission.admittime else None,
