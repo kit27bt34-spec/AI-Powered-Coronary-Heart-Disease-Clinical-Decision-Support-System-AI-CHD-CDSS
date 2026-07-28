@@ -333,35 +333,42 @@ def get_hospital_doctors(
     db: Session = Depends(get_db)
 ):
     """Returns list of doctors belonging to the current hospital."""
-    from backend.database.models import Hospital
-    target_hosp_id = current_user.hospital_id if current_user else None
-    if hospital:
-        clean_slug = hospital.lower().replace("-", "%").strip()
-        found_hosp = db.query(Hospital).filter(
-            (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
-        ).first()
-        if found_hosp:
-            target_hosp_id = found_hosp.id
+    try:
+        from backend.database.models import Hospital
+        target_hosp_id = current_user.hospital_id if current_user else None
+        if hospital:
+            clean_slug = hospital.lower().replace("-", "%").strip()
+            try:
+                found_hosp = db.query(Hospital).filter(
+                    (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
+                ).first()
+                if found_hosp:
+                    target_hosp_id = found_hosp.id
+            except Exception as e:
+                logger.warning(f"Could not query Hospital model in get_hospital_doctors: {e}")
 
-    query = db.query(User).filter(User.role.ilike("%doctor%"))
-    if target_hosp_id:
-        from sqlalchemy import or_
-        query = query.filter(or_(User.hospital_id == target_hosp_id, User.hospital_id.is_(None)))
+        query = db.query(User).filter(User.role.ilike("%doctor%"))
+        if target_hosp_id:
+            from sqlalchemy import or_
+            query = query.filter(or_(User.hospital_id == target_hosp_id, User.hospital_id.is_(None)))
 
-    docs = query.all()
-    result = []
-    for d in docs:
-        dept = d.doctor_profile.department if (d.doctor_profile and d.doctor_profile.department) else "Cardiology & CCU"
-        dname = d.doctor_profile.full_name if (d.doctor_profile and d.doctor_profile.full_name) else (d.full_name or d.username or d.email.split("@")[0].capitalize())
-        if not dname.startswith("Dr."):
-            dname = f"Dr. {dname}"
-        result.append({
-            "id": str(d.id),
-            "name": dname,
-            "email": d.email,
-            "department": dept
-        })
-    return result
+        docs = query.all()
+        result = []
+        for d in docs:
+            dept = d.doctor_profile.department if (d.doctor_profile and d.doctor_profile.department) else "Cardiology & CCU"
+            dname = d.doctor_profile.full_name if (d.doctor_profile and d.doctor_profile.full_name) else (d.full_name or d.username or d.email.split("@")[0].capitalize())
+            if not dname.startswith("Dr."):
+                dname = f"Dr. {dname}"
+            result.append({
+                "id": str(d.id),
+                "name": dname,
+                "email": d.email,
+                "department": dept
+            })
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching doctors: {e}", exc_info=True)
+        return []
 
 
 @router.get("/{patient_id}", response_model=Dict[str, Any])
@@ -515,45 +522,54 @@ def register_patient(
     """Registers a new patient with their initial admission record, vitals and diagnoses."""
     # 1. Resolve Hospital & Check Capacity Limit
     from backend.database.models import Hospital
-    target_hospital_id = current_user.hospital_id
+    from sqlalchemy import or_
+    target_hospital_id = current_user.hospital_id if current_user else None
     hospital = None
-    if target_hospital_id:
-        hospital = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
-    if not hospital:
-        hospital = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
-        if hospital:
-            target_hospital_id = hospital.id
+    try:
+        if target_hospital_id:
+            hospital = db.query(Hospital).filter(Hospital.id == target_hospital_id).first()
+        if not hospital:
+            hospital = db.query(Hospital).filter(Hospital.name.ilike("%St. Jude%")).first()
+            if hospital:
+                target_hospital_id = hospital.id
+    except Exception as e:
+        logger.warning(f"Could not resolve hospital model: {e}")
 
     if hospital:
-        careunit = (payload.careunit or "ICU Bed").strip()
-        query = (
-            db.query(Admission)
-            .join(Patient, Admission.patient_id == Patient.id)
-            .filter(
-                Patient.hospital_id == hospital.id,
-                Patient.is_deleted == False,
-                Admission.is_deleted == False
+        try:
+            careunit = (payload.careunit or "ICU Bed").strip()
+            query = (
+                db.query(Admission)
+                .join(Patient, Admission.patient_id == Patient.id)
+                .filter(
+                    Patient.hospital_id == hospital.id,
+                    or_(Patient.is_deleted == False, Patient.is_deleted.is_(None)),
+                    or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
+                )
             )
-        )
-        
-        if "ICU" in careunit:
-            max_beds = hospital.icu_beds or 20
-            occupied = query.filter(Admission.careunit.ilike("%ICU%")).count()
-            unit_label = "ICU Bed"
-        elif "CCU" in careunit:
-            max_beds = getattr(hospital, "ccu_beds", 20) or 20
-            occupied = query.filter(Admission.careunit.ilike("%CCU%")).count()
-            unit_label = "CCU Bed"
-        else:
-            max_beds = hospital.total_beds or 10
-            occupied = query.filter(Admission.careunit.ilike("%Normal%")).count()
-            unit_label = "Normal Bed"
+            
+            if "ICU" in careunit:
+                max_beds = getattr(hospital, "icu_beds", 20) or 20
+                occupied = query.filter(Admission.careunit.ilike("%ICU%")).count()
+                unit_label = "ICU Bed"
+            elif "CCU" in careunit:
+                max_beds = getattr(hospital, "ccu_beds", 20) or 20
+                occupied = query.filter(Admission.careunit.ilike("%CCU%")).count()
+                unit_label = "CCU Bed"
+            else:
+                max_beds = getattr(hospital, "total_beds", 100) or 100
+                occupied = query.filter(Admission.careunit.ilike("%Normal%")).count()
+                unit_label = "Normal Bed"
 
-        if occupied >= max_beds:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Bed Capacity Limit Reached: {hospital.name} has reached its maximum allocated {unit_label} limit ({occupied}/{max_beds} beds occupied). No additional patients can be registered until a bed is vacated."
-            )
+            if occupied >= max_beds:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bed Capacity Limit Reached: {hospital.name} has reached its maximum allocated {unit_label} limit ({occupied}/{max_beds} beds occupied). No additional patients can be registered until a bed is vacated."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Capacity check bypassed due to error: {e}")
 
     try:
 
