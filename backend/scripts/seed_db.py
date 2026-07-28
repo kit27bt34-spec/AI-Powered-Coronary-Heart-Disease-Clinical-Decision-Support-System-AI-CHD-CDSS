@@ -220,6 +220,17 @@ def seed_database(reset_db: bool = False):
                 safe_execute("ALTER TABLE model_registry ADD COLUMN status VARCHAR(50) DEFAULT 'Production';")
                 safe_execute("ALTER TABLE model_registry ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
                 safe_execute("ALTER TABLE model_registry ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+
+                # Pending Registrations columns auto-migration
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN phone VARCHAR(30);")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN specialty VARCHAR(100);")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN department VARCHAR(100);")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN status VARCHAR(50) DEFAULT 'Pending';")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN reviewed_by VARCHAR(100);")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN reviewed_at TIMESTAMP;")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN rejection_reason TEXT;")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+                safe_execute("ALTER TABLE pending_registrations ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
         except Exception as e:
             logger.warning(f"DDL migration execution warning: {e}")
         # 1. Seed Roles
