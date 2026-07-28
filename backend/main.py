@@ -54,17 +54,34 @@ async def add_security_headers(request: Request, call_next):
 
 
 
+@app.on_event("startup")
+def startup_db_init():
+    """Auto-creates PostgreSQL schema tables and seeds initial accounts on startup."""
+    try:
+        from backend.scripts.seed_db import seed_database
+        logger.info("Initializing production database schema and seeding system roles/accounts...")
+        seed_database(reset_db=False)
+    except Exception as e:
+        logger.error(f"Startup database initialization error: {e}", exc_info=True)
+
 # Global Exception Handler
 @app.exception_handler(Exception)
 def global_exception_handler(request: Request, exc: Exception):
     if request.scope.get("type") == "websocket":
         raise exc
     logger.error(f"Unhandled system error occurred: {exc}", exc_info=True)
+    origin = request.headers.get("origin", "*")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "detail": "A critical system error occurred. Please contact the administrator."
+            "detail": f"System error occurred: {str(exc)}"
         },
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
     )
 
 
