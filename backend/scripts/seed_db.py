@@ -109,11 +109,14 @@ def seed_database(reset_db: bool = False):
 
                 # Admissions columns auto-migration
                 safe_execute("ALTER TABLE admissions ADD COLUMN careunit VARCHAR(100) DEFAULT 'ICU Bed';")
+                safe_execute("ALTER TABLE admissions ADD COLUMN dischtime TIMESTAMP;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN bmi FLOAT;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN systolic_bp FLOAT;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN diastolic_bp FLOAT;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN heart_rate FLOAT;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN cholesterol FLOAT;")
+                safe_execute("ALTER TABLE admissions ADD COLUMN glucose FLOAT;")
+                safe_execute("ALTER TABLE admissions ADD COLUMN smoking INTEGER DEFAULT 0;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN statin_history INTEGER DEFAULT 0;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN beta_blocker_history INTEGER DEFAULT 0;")
                 safe_execute("ALTER TABLE admissions ADD COLUMN ace_arb_history INTEGER DEFAULT 0;")
