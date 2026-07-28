@@ -21,7 +21,7 @@ from backend.database.models import (
     PatientAssignment,
     Report,
 )
-from backend.auth import get_current_user, RoleChecker
+from backend.auth import get_current_user, get_optional_user, RoleChecker
 from backend.schemas import (
     PatientCreate,
     PatientUpdate,
@@ -39,14 +39,14 @@ router = APIRouter(prefix="/api/v1/patients", tags=["ICU Patients Registry"])
 @router.get("", response_model=List[Dict[str, Any]])
 def list_patients(
     hospital: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """Retrieves all patients formatted for the registry with demographics, vitals, and calibrated risk scores."""
     from backend.database.models import Hospital
     
     # Resolve target hospital_id if hospital query parameter or user hospital_id is present
-    target_hospital_id = current_user.hospital_id
+    target_hospital_id = current_user.hospital_id if current_user else None
     if hospital:
         clean_slug = hospital.lower().replace("-", "%").strip()
         found_hosp = db.query(Hospital).filter(
@@ -55,7 +55,7 @@ def list_patients(
         if found_hosp:
             target_hospital_id = found_hosp.id
 
-    role = (current_user.role or "").lower()
+    role = (current_user.role or "doctor").lower() if current_user else "doctor"
     query = db.query(Patient).filter(Patient.is_deleted == False)
 
     if target_hospital_id:
@@ -263,14 +263,14 @@ def list_patients(
 @router.get("/bed-capacity")
 def get_bed_capacity(
     hospital: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """Returns total bed capacity and live occupied count by bed unit (ICU, CCU, Normal)."""
     from backend.database.models import Hospital
-    target_hospital_id = current_user.hospital_id
+    target_hospital_id = current_user.hospital_id if current_user else None
     if hospital:
-        clean_slug = hospital.lower().replace("-", " ").strip()
+        clean_slug = hospital.lower().replace("-", "%").strip()
         hosp = db.query(Hospital).filter(
             (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
         ).first()
@@ -313,14 +313,14 @@ def get_bed_capacity(
 @router.get("/doctors")
 def get_hospital_doctors(
     hospital: Optional[str] = None,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """Returns list of doctors belonging to the current hospital."""
     from backend.database.models import Hospital
-    target_hosp_id = current_user.hospital_id
+    target_hosp_id = current_user.hospital_id if current_user else None
     if hospital:
-        clean_slug = hospital.lower().replace("-", " ").strip()
+        clean_slug = hospital.lower().replace("-", "%").strip()
         found_hosp = db.query(Hospital).filter(
             (Hospital.name.ilike(f"%{clean_slug}%")) | (Hospital.code.ilike(f"%{hospital}%"))
         ).first()

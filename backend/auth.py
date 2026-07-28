@@ -28,6 +28,21 @@ from backend.schemas import (
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 security_scheme = HTTPBearer()
+optional_security_scheme = HTTPBearer(auto_error=False)
+
+
+def get_optional_user(
+    credentials: HTTPAuthorizationCredentials = Depends(optional_security_scheme),
+    db: Session = Depends(get_db),
+):
+    """Dependency returning User if valid token present, or None without throwing 401."""
+    if not credentials or not credentials.credentials:
+        return None
+    token = credentials.credentials
+    email = decode_access_token(token)
+    if not email:
+        return None
+    return db.query(User).filter(User.email == email, User.is_deleted == False).first()
 
 
 def get_current_user(
