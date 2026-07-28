@@ -27,7 +27,7 @@ class AlertService:
                 "category": "Critical Patient",
                 "severity": "CRITICAL",
                 "title": f"Critical CHD Cases Identified: {very_high_count}",
-                "message": f"{very_high_count} patient(s) evaluated with Very High CHD Risk (≥40%). Immediate clinical intervention recommended.",
+                "message": f"{very_high_count} patient(s) evaluated with Very High CHD Risk (>=40%). Immediate clinical intervention recommended.",
                 "timestamp": "Real-time"
             })
 

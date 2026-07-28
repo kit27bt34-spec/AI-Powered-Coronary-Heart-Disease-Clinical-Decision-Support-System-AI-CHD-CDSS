@@ -80,7 +80,7 @@ class AnalyticsService:
             {"name": "Low (5-9.9%)", "value": risk_agg["low"], "color": "#059669"},
             {"name": "Moderate (10-19.9%)", "value": risk_agg["mod"], "color": "#f59e0b"},
             {"name": "High (20-39.9%)", "value": risk_agg["high"], "color": "#ef4444"},
-            {"name": "Very High (≥40%)", "value": risk_agg["v_high"], "color": "#dc2626"},
+            {"name": "Very High (>=40%)", "value": risk_agg["v_high"], "color": "#dc2626"},
         ]
 
         # 7-Day Weekly Prediction Trend
