@@ -533,6 +533,7 @@ def register_patient(
             if hospital:
                 target_hospital_id = hospital.id
     except Exception as e:
+        db.rollback()
         logger.warning(f"Could not resolve hospital model: {e}")
 
     if hospital:
@@ -567,8 +568,10 @@ def register_patient(
                     detail=f"Bed Capacity Limit Reached: {hospital.name} has reached its maximum allocated {unit_label} limit ({occupied}/{max_beds} beds occupied). No additional patients can be registered until a bed is vacated."
                 )
         except HTTPException:
+            db.rollback()
             raise
         except Exception as e:
+            db.rollback()
             logger.warning(f"Capacity check bypassed due to error: {e}")
 
     try:
