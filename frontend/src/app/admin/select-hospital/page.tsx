@@ -27,7 +27,68 @@ interface HospitalItem {
   logo_type?: "stjude" | "apollo" | "mayo" | "cleveland" | "default";
 }
 
-const DEFAULT_HOSPITALS: HospitalItem[] = [];
+const DEFAULT_HOSPITALS: HospitalItem[] = [
+  {
+    id: "h-stjude",
+    name: "St. Jude Memorial Hospital",
+    code: "SJH-01",
+    city: "Boston",
+    state: "MA",
+    country: "United States",
+    departments_count: 5,
+    doctors_count: 12,
+    patients_count: 450,
+    predictions_count: 1280,
+    status: "Active",
+    health_score: 99.4,
+    logo_type: "stjude",
+  },
+  {
+    id: "h-apollo",
+    name: "Apollo Hospitals & Heart Center",
+    code: "APOLLO-02",
+    city: "New York",
+    state: "NY",
+    country: "United States",
+    departments_count: 8,
+    doctors_count: 24,
+    patients_count: 890,
+    predictions_count: 3420,
+    status: "Active",
+    health_score: 100.0,
+    logo_type: "apollo",
+  },
+  {
+    id: "h-ram",
+    name: "RAM Medical Institute",
+    code: "RAM-03",
+    city: "Chicago",
+    state: "IL",
+    country: "United States",
+    departments_count: 4,
+    doctors_count: 15,
+    patients_count: 320,
+    predictions_count: 980,
+    status: "Active",
+    health_score: 98.8,
+    logo_type: "mayo",
+  },
+  {
+    id: "h-abc",
+    name: "ABC Super-Specialty Hospital",
+    code: "ABC-04",
+    city: "San Francisco",
+    state: "CA",
+    country: "United States",
+    departments_count: 6,
+    doctors_count: 18,
+    patients_count: 610,
+    predictions_count: 2150,
+    status: "Active",
+    health_score: 99.2,
+    logo_type: "cleveland",
+  },
+];
 
 export default function SelectHospitalPage() {
   const router = useRouter();
@@ -302,9 +363,12 @@ export default function SelectHospitalPage() {
           };
         });
         setHospitals(mapped);
+      } else {
+        setHospitals(DEFAULT_HOSPITALS);
       }
     } catch (err) {
       console.warn("Using default hospital dataset for governance dashboard:", err);
+      setHospitals(DEFAULT_HOSPITALS);
     } finally {
       setIsLoading(false);
     }
