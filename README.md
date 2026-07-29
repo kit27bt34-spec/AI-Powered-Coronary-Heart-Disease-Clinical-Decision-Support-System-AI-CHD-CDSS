@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🫀 AI-Powered Coronary Heart Disease Clinical Decision Support System (AI-CHD-CDSS)
+# 🫀 AI-Powered Coronary Heart Disease Clinical Decision Support System (AI-CHD-CDSS).
 
 ### *An Enterprise-Grade, Explainable AI Clinical Co-Pilot for Cardiovascular Risk Stratification & Hospital Governance*
 
