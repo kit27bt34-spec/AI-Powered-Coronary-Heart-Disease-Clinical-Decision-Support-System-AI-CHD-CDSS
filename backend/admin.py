@@ -264,17 +264,32 @@ def get_clinical_intelligence(
     db: Session = Depends(get_db),
 ):
     """Returns full executive clinical intelligence metrics from PostgreSQL."""
-    return ClinicalIntelligenceService.get_clinical_intelligence(
-        db,
-        hospital_id=hospital_id,
-        department_id=department_id,
-        age_group=age_group,
-        gender_val=gender,
-        disease=disease,
-        risk_category=risk_category,
-        date_range=date_range,
-        search=search,
-    )
+    try:
+        return ClinicalIntelligenceService.get_clinical_intelligence(
+            db,
+            hospital_id=hospital_id,
+            department_id=department_id,
+            age_group=age_group,
+            gender_val=gender,
+            disease=disease,
+            risk_category=risk_category,
+            date_range=date_range,
+            search=search,
+        )
+    except Exception as e:
+        import traceback
+        logger.error(f"Error in get_clinical_intelligence router: {e}", exc_info=True)
+        return {
+            "has_data": False,
+            "top_kpis": {
+                "high_risk_population": 0, "critical_risk_patients": 0, "average_chd_risk_pct": 0.0,
+                "average_blood_pressure": "0 / 0 mmHg", "average_systolic_bp": 0.0, "average_diastolic_bp": 0.0,
+                "average_cholesterol": "0.0 mg/dL", "average_blood_glucose": "0.0 mg/dL", "average_bmi": "0.0 kg/m²",
+                "clinical_quality_score": "0.0%"
+            },
+            "_debug_error": str(e),
+            "_traceback": traceback.format_exc()
+        }
 
 
 @router.get("/disease-burden")
