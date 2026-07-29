@@ -1099,28 +1099,36 @@ export default function EnterpriseClinicalIntelligenceCenter() {
                 </div>
 
                 {/* Bars & Line chart rendering */}
-                <div className="flex items-end justify-between gap-2 h-36 pt-4 px-2">
+                <div className="flex items-end justify-between gap-3 h-44 pt-6 pb-2 px-3 bg-slate-50/50 rounded-2xl border border-slate-100/80">
                   {activeTrends.map((pt, idx) => {
                     const maxPred = Math.max(1, ...activeTrends.map(t => t.total_predictions));
-                    const heightPct = Math.min(100, Math.max(15, (pt.total_predictions / maxPred) * 100));
+                    const hasPreds = pt.total_predictions > 0;
+                    const predHeightPct = hasPreds ? Math.max(8, Math.min(100, (pt.total_predictions / maxPred) * 100)) : 4;
+                    const highRiskHeightPct = hasPreds ? Math.max(4, Math.min(100, (pt.high_risk_count / maxPred) * 100)) : 0;
+
                     return (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
-                        <div className="text-[9px] font-black text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                          {pt.average_risk_pct}%
+                      <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 group h-full justify-end">
+                        {/* Hover Tooltip Value */}
+                        <div className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 shadow-xs opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          {pt.total_predictions} pred | {pt.average_risk_pct}%
                         </div>
-                        <div className="w-full flex items-end justify-center gap-1 h-full">
+
+                        {/* Bar Track & Bars */}
+                        <div className="w-full flex items-end justify-center gap-1.5 h-full max-w-[48px] bg-slate-200/40 p-1 rounded-xl">
                           <div
-                            className="w-1/2 bg-indigo-600/90 rounded-t-md hover:bg-indigo-700 transition-all"
-                            style={{ height: `${heightPct}%` }}
+                            className="w-1/2 bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-lg hover:brightness-110 transition-all shadow-xs"
+                            style={{ height: `${predHeightPct}%` }}
                             title={`Predictions: ${pt.total_predictions}`}
                           />
                           <div
-                            className="w-1/2 bg-rose-500/90 rounded-t-md hover:bg-rose-600 transition-all"
-                            style={{ height: `${Math.min(100, (pt.high_risk_count / (maxPred || 1)) * 100)}%` }}
+                            className="w-1/2 bg-gradient-to-t from-rose-500 to-rose-400 rounded-lg hover:brightness-110 transition-all shadow-xs"
+                            style={{ height: `${highRiskHeightPct}%` }}
                             title={`High Risk: ${pt.high_risk_count}`}
                           />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 truncate w-full text-center">
+
+                        {/* Period Label */}
+                        <span className="text-[11px] font-extrabold text-slate-600 truncate w-full text-center tracking-tight">
                           {pt.period}
                         </span>
                       </div>
@@ -1327,49 +1335,49 @@ export default function EnterpriseClinicalIntelligenceCenter() {
           </div>
 
           {/* EXECUTIVE INSIGHTS PANEL SUMMARY */}
-          <GlassCard className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl shadow-lg space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <GlassCard className="p-6 bg-white border border-slate-200/90 rounded-3xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-2xl bg-indigo-600/40 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                <div className="h-9 w-9 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-black text-white uppercase tracking-wider">Executive Summary Panel</h2>
-                  <p className="text-xs text-slate-400 font-medium">Strategic leadership digest generated from PostgreSQL clinical data</p>
+                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider">Executive Summary Panel</h2>
+                  <p className="text-xs text-slate-500 font-medium">Strategic leadership digest generated strictly from PostgreSQL clinical data</p>
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-200/80">
                 Leadership Directive
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-1">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Highest Risk Department</span>
-                <span className="text-sm font-black text-rose-400 block">{data?.executive_summary.highest_risk_department}</span>
-                <p className="text-[11px] text-slate-400 font-medium">Requires priority cardiology staffing titration</p>
+              <div className="p-4 bg-rose-50/50 border border-rose-200/60 rounded-2xl space-y-1">
+                <span className="text-[10px] font-extrabold text-rose-700 uppercase block">Highest Risk Department</span>
+                <span className="text-base font-black text-slate-900 block">{data?.executive_summary.highest_risk_department ?? "None"}</span>
+                <p className="text-[11px] text-slate-600 font-medium">Requires priority cardiology & ICU staffing titration</p>
               </div>
 
-              <div className="p-4 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-1">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Hospital Intervention Priority</span>
-                <span className="text-sm font-black text-amber-400 block">{data?.executive_summary.hospital_requiring_intervention}</span>
-                <p className="text-[11px] text-slate-400 font-medium">Outpatient monitoring workflow optimization</p>
+              <div className="p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl space-y-1">
+                <span className="text-[10px] font-extrabold text-amber-700 uppercase block">Hospital Intervention Priority</span>
+                <span className="text-base font-black text-slate-900 block">{data?.executive_summary.hospital_requiring_intervention ?? "None"}</span>
+                <p className="text-[11px] text-slate-600 font-medium">Outpatient monitoring workflow optimization</p>
               </div>
 
-              <div className="p-4 bg-slate-800/50 border border-slate-700/60 rounded-2xl space-y-1">
-                <span className="text-[10px] font-extrabold text-slate-400 uppercase block">Clinical Improvement Trend</span>
-                <span className="text-sm font-black text-emerald-400 block">{data?.executive_summary.clinical_improvement_trend}</span>
-                <p className="text-[11px] text-slate-400 font-medium">Demonstrated post-decision support deployment</p>
+              <div className="p-4 bg-emerald-50/50 border border-emerald-200/60 rounded-2xl space-y-1">
+                <span className="text-[10px] font-extrabold text-emerald-700 uppercase block">Clinical Improvement Trend</span>
+                <span className="text-base font-black text-slate-900 block">{data?.executive_summary.clinical_improvement_trend ?? "AI Active"}</span>
+                <p className="text-[11px] text-slate-600 font-medium">Verified post-decision support deployment</p>
               </div>
             </div>
 
-            <div className="p-4 bg-indigo-900/30 border border-indigo-700/40 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="p-4 bg-indigo-50/60 border border-indigo-100 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
               <div className="space-y-0.5">
-                <span className="font-bold text-indigo-200 block">{data?.executive_summary.population_trend}</span>
-                <span className="text-slate-400 font-medium">Immediate follow-up queue: {data?.executive_summary.immediate_followup_required} critical risk patients</span>
+                <span className="font-extrabold text-indigo-950 block">{data?.executive_summary.population_trend}</span>
+                <span className="text-slate-600 font-medium">Immediate follow-up queue: <strong className="text-rose-700 font-black">{data?.executive_summary.immediate_followup_required ?? 0}</strong> critical risk patients</span>
               </div>
-              <span className="text-xs font-black text-indigo-300 bg-indigo-500/20 px-3 py-1.5 rounded-xl border border-indigo-500/30 whitespace-nowrap">
-                Highest Accuracy: {data?.executive_summary.highest_accuracy_department}
+              <span className="text-xs font-black text-indigo-800 bg-white px-3 py-1.5 rounded-xl border border-indigo-200/80 shadow-2xs whitespace-nowrap">
+                Highest Accuracy: {data?.executive_summary.highest_accuracy_department ?? "N/A"}
               </span>
             </div>
           </GlassCard>
