@@ -296,10 +296,7 @@ class PatientAnalyticsService:
             # 6. DEPARTMENT ANALYTICS (Safely handled against missing schema columns)
             dept_analytics = []
             try:
-                try:
-                    departments = db.query(Department).filter(Department.is_deleted == False).all()
-                except Exception:
-                    departments = db.query(Department).all()
+                departments = db.query(Department).all()
 
                 for d in departments:
                     try:
@@ -307,6 +304,7 @@ class PatientAnalyticsService:
                         doc_ids = [u.id for u in dept_docs]
                         d_preds = [p for p in all_predictions if getattr(p, "clinician_id", None) in doc_ids] if doc_ids else []
                     except Exception:
+                        db.rollback()
                         d_preds = []
                         
                     d_pred_count = len(d_preds)
@@ -323,6 +321,7 @@ class PatientAnalyticsService:
                         "average_age": avg_age
                     })
             except Exception as e_dept:
+                db.rollback()
                 logger.warning(f"Error retrieving department analytics: {e_dept}")
 
             # 7. RECENT PATIENT ACTIVITY STREAM
@@ -332,9 +331,12 @@ class PatientAnalyticsService:
                 for log in audit_logs:
                     user_label = "attending.physician@hospital.org"
                     if getattr(log, "user_id", None):
-                        u = db.query(User).filter(User.id == log.user_id).first()
-                        if u and getattr(u, "email", None):
-                            user_label = u.email
+                        try:
+                            u = db.query(User).filter(User.id == log.user_id).first()
+                            if u and getattr(u, "email", None):
+                                user_label = u.email
+                        except Exception:
+                            db.rollback()
 
                     recent_activities.append({
                         "id": str(log.id),
@@ -344,6 +346,7 @@ class PatientAnalyticsService:
                         "user_email": user_label
                     })
             except Exception as e_audit:
+                db.rollback()
                 logger.warning(f"Error querying audit activity stream: {e_audit}")
 
             # 8. PATIENT DATA GRID TABLE (Paginated)
@@ -359,19 +362,9 @@ class PatientAnalyticsService:
                 doctor_name = "Unassigned Doctor"
                 dept_label = "General Medicine"
 
-                if getattr(pat, "assigned_doctor", None):
-                    doc_u = pat.assigned_doctor
-                    doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
-                    if getattr(doc_u, "department_id", None):
-                        try:
-                            dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
-                            if dept_obj:
-                                dept_label = dept_obj.name
-                        except Exception:
-                            pass
-                elif latest_p and getattr(latest_p, "clinician_id", None):
-                    doc_u = db.query(User).filter(User.id == latest_p.clinician_id).first()
-                    if doc_u:
+                try:
+                    if getattr(pat, "assigned_doctor", None):
+                        doc_u = pat.assigned_doctor
                         doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
                         if getattr(doc_u, "department_id", None):
                             try:
@@ -379,7 +372,20 @@ class PatientAnalyticsService:
                                 if dept_obj:
                                     dept_label = dept_obj.name
                             except Exception:
-                                pass
+                                db.rollback()
+                    elif latest_p and getattr(latest_p, "clinician_id", None):
+                        doc_u = db.query(User).filter(User.id == latest_p.clinician_id).first()
+                        if doc_u:
+                            doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
+                            if getattr(doc_u, "department_id", None):
+                                try:
+                                    dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
+                                    if dept_obj:
+                                        dept_label = dept_obj.name
+                                except Exception:
+                                    db.rollback()
+                except Exception:
+                    db.rollback()
 
                 patient_rows.append({
                     "id": str(pat.id),
