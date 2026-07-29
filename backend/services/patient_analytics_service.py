@@ -103,9 +103,14 @@ class PatientAnalyticsService:
         }
 
         try:
-            patients_query = db.query(Patient).filter(
-                or_(Patient.is_deleted == False, Patient.is_deleted.is_(None))
-            )
+            try:
+                patients_query = db.query(Patient).filter(
+                    or_(Patient.is_deleted == False, Patient.is_deleted.is_(None))
+                )
+                _ = patients_query.count()
+            except Exception:
+                db.rollback()
+                patients_query = db.query(Patient)
 
             # Apply search and filters if provided
             if search and search.strip():
@@ -123,12 +128,15 @@ class PatientAnalyticsService:
                 try:
                     target_h_uuid = uuid.UUID(hospital_id)
                 except (ValueError, TypeError):
-                    clean_slug = hospital_id.lower().replace("-", "%").strip()
-                    hosp = db.query(Hospital).filter(
-                        or_(Hospital.name.ilike(f"%{clean_slug}%"), Hospital.code.ilike(f"%{hospital_id}%"))
-                    ).first()
-                    if hosp:
-                        target_h_uuid = hosp.id
+                    try:
+                        clean_slug = hospital_id.lower().replace("-", "%").strip()
+                        hosp = db.query(Hospital).filter(
+                            or_(Hospital.name.ilike(f"%{clean_slug}%"), Hospital.code.ilike(f"%{hospital_id}%"))
+                        ).first()
+                        if hosp:
+                            target_h_uuid = hosp.id
+                    except Exception:
+                        db.rollback()
 
                 if target_h_uuid:
                     patients_query = patients_query.filter(
@@ -145,17 +153,14 @@ class PatientAnalyticsService:
             if department_id and department_id.lower() not in ["all", ""]:
                 try:
                     dept_uuid = uuid.UUID(department_id)
-                    dept_docs = db.query(User.id).filter(
-                        User.department_id == dept_uuid,
-                        or_(User.is_deleted == False, User.is_deleted.is_(None))
-                    ).all()
+                    dept_docs = db.query(User.id).filter(User.department_id == dept_uuid).all()
                     doc_ids = [u[0] for u in dept_docs]
                     if doc_ids:
                         patients_query = patients_query.filter(Patient.assigned_doctor_id.in_(doc_ids))
                     else:
                         patients_query = patients_query.filter(Patient.id == None)
-                except (ValueError, TypeError):
-                    pass
+                except Exception:
+                    db.rollback()
 
             if age_range and age_range.lower() not in ["all", ""]:
                 if age_range in ["under_30", "<30"]:
@@ -170,13 +175,16 @@ class PatientAnalyticsService:
                     patients_query = patients_query.filter(Patient.anchor_age >= 75)
 
             if risk_level and risk_level.lower() not in ["all", ""]:
-                r_cap = risk_level.replace("_", " ").title()
-                risk_preds = db.query(ClinicalPrediction.patient_uuid).filter(ClinicalPrediction.risk_level.ilike(f"%{r_cap}%")).all()
-                p_uuids = [p[0] for p in risk_preds]
-                if p_uuids:
-                    patients_query = patients_query.filter(Patient.patient_uuid.in_(p_uuids))
-                else:
-                    patients_query = patients_query.filter(Patient.id == None)
+                try:
+                    r_cap = risk_level.replace("_", " ").title()
+                    risk_preds = db.query(ClinicalPrediction.patient_uuid).filter(ClinicalPrediction.risk_level.ilike(f"%{r_cap}%")).all()
+                    p_uuids = [p[0] for p in risk_preds]
+                    if p_uuids:
+                        patients_query = patients_query.filter(Patient.patient_uuid.in_(p_uuids))
+                    else:
+                        patients_query = patients_query.filter(Patient.id == None)
+                except Exception:
+                    db.rollback()
 
             total_patients = patients_query.count()
             if total_patients == 0:
@@ -187,9 +195,14 @@ class PatientAnalyticsService:
             patient_ids = [p.id for p in all_patients]
             patient_uuids = [p.patient_uuid for p in all_patients]
 
-            admissions_query = db.query(Admission).filter(
-                or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
-            )
+            try:
+                admissions_query = db.query(Admission).filter(
+                    or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
+                )
+                _ = admissions_query.count()
+            except Exception:
+                db.rollback()
+                admissions_query = db.query(Admission)
                 
             predictions_query = db.query(ClinicalPrediction)
 
@@ -198,8 +211,17 @@ class PatientAnalyticsService:
             if patient_uuids:
                 predictions_query = predictions_query.filter(ClinicalPrediction.patient_uuid.in_(patient_uuids))
 
-            all_admissions = admissions_query.all()
-            all_predictions = predictions_query.all()
+            try:
+                all_admissions = admissions_query.all()
+            except Exception:
+                db.rollback()
+                all_admissions = []
+
+            try:
+                all_predictions = predictions_query.all()
+            except Exception:
+                db.rollback()
+                all_predictions = []
 
             # 1. TOP KPI CARDS
             male_count = sum(1 for p in all_patients if getattr(p, "gender", None) == 1)
@@ -363,16 +385,18 @@ class PatientAnalyticsService:
                 dept_label = "General Medicine"
 
                 try:
-                    if getattr(pat, "assigned_doctor", None):
-                        doc_u = pat.assigned_doctor
-                        doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
-                        if getattr(doc_u, "department_id", None):
-                            try:
-                                dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
-                                if dept_obj:
-                                    dept_label = dept_obj.name
-                            except Exception:
-                                db.rollback()
+                    doc_id_to_find = getattr(pat, "assigned_doctor_id", None)
+                    if doc_id_to_find:
+                        doc_u = db.query(User).filter(User.id == doc_id_to_find).first()
+                        if doc_u:
+                            doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
+                            if getattr(doc_u, "department_id", None):
+                                try:
+                                    dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
+                                    if dept_obj:
+                                        dept_label = dept_obj.name
+                                except Exception:
+                                    db.rollback()
                     elif latest_p and getattr(latest_p, "clinician_id", None):
                         doc_u = db.query(User).filter(User.id == latest_p.clinician_id).first()
                         if doc_u:
