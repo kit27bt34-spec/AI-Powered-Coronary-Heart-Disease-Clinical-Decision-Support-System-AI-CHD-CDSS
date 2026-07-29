@@ -1736,6 +1736,61 @@ def revoke_user_sessions(
 
 
 # --- Patient Population Analytics REST APIs -----------------------------------
+
+@router.get("/patient-analytics/debug")
+def debug_patient_analytics(
+    db: Session = Depends(get_db),
+):
+    """Diagnostic endpoint - checks raw patient table state for debugging."""
+    from sqlalchemy import text, or_
+    try:
+        # Raw SQL count
+        raw_count = db.execute(text("SELECT count(*) FROM patients")).scalar()
+
+        # Check is_deleted distribution
+        try:
+            is_deleted_dist = db.execute(text(
+                "SELECT is_deleted, count(*) FROM patients GROUP BY is_deleted"
+            )).fetchall()
+            is_deleted_info = [{"is_deleted": str(r[0]), "count": r[1]} for r in is_deleted_dist]
+        except Exception as e:
+            is_deleted_info = f"Error querying is_deleted: {str(e)}"
+
+        # ORM query - no filter
+        orm_all = db.query(Patient).count()
+
+        # ORM query - with is_deleted filter
+        try:
+            orm_not_deleted = db.query(Patient).filter(
+                or_(Patient.is_deleted == False, Patient.is_deleted.is_(None))
+            ).count()
+        except Exception as e:
+            orm_not_deleted = f"Error: {str(e)}"
+
+        # Sample patient data
+        sample = db.query(Patient).first()
+        sample_info = None
+        if sample:
+            sample_info = {
+                "id": str(sample.id),
+                "patient_uuid": sample.patient_uuid,
+                "name": sample.name,
+                "is_deleted": str(getattr(sample, "is_deleted", "ATTR_MISSING")),
+                "hospital_id": str(getattr(sample, "hospital_id", "ATTR_MISSING")),
+                "assigned_doctor_id": str(getattr(sample, "assigned_doctor_id", "ATTR_MISSING")),
+            }
+
+        return {
+            "raw_sql_count": raw_count,
+            "orm_all_count": orm_all,
+            "orm_not_deleted_count": orm_not_deleted,
+            "is_deleted_distribution": is_deleted_info,
+            "sample_patient": sample_info,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.get("/patient-analytics")
 def get_patient_population_analytics(
     search: Optional[str] = Query(default=None),

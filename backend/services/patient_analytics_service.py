@@ -466,7 +466,12 @@ class PatientAnalyticsService:
                 "total_pages": Math_ceil(total_patients, limit)
             }
         except Exception as main_e:
-            logger.error(f"Error calculating patient population analytics: {main_e}", exc_info=True)
+            import traceback
+            err_msg = f"Error calculating patient population analytics: {main_e}"
+            logger.error(err_msg, exc_info=True)
+            print(f"[PATIENT_ANALYTICS_ERROR] {err_msg}")
+            print(traceback.format_exc())
+            empty_payload["_debug_error"] = str(main_e)
             return empty_payload
 
 def Math_ceil(a, b):
