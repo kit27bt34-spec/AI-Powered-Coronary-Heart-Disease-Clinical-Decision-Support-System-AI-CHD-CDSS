@@ -1780,12 +1780,23 @@ def debug_patient_analytics(
                 "assigned_doctor_id": str(getattr(sample, "assigned_doctor_id", "ATTR_MISSING")),
             }
 
+        # Test PatientAnalyticsService directly
+        service_res = None
+        try:
+            service_res = PatientAnalyticsService.get_population_analytics(db)
+        except Exception as e_svc:
+            service_res = {"exception_thrown": str(e_svc)}
+
         return {
             "raw_sql_count": raw_count,
             "orm_all_count": orm_all,
             "orm_not_deleted_count": orm_not_deleted,
             "is_deleted_distribution": is_deleted_info,
             "sample_patient": sample_info,
+            "service_result_has_data": service_res.get("has_data") if isinstance(service_res, dict) else None,
+            "service_result_total_patients": service_res.get("total_patients") if isinstance(service_res, dict) else None,
+            "service_result_debug_error": service_res.get("_debug_error") if isinstance(service_res, dict) else None,
+            "service_result_rows_count": len(service_res.get("patient_table", [])) if isinstance(service_res, dict) else 0,
         }
     except Exception as e:
         return {"error": str(e)}
