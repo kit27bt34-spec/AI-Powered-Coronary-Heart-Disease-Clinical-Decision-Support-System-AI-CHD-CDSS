@@ -43,6 +43,7 @@ export default function AdminPatientsPage() {
   const itemsPerPage = 15;
 
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   // Drawers & Modals State
   const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
@@ -59,6 +60,7 @@ export default function AdminPatientsPage() {
   // Fetch Population Analytics
   const fetchAnalytics = () => {
     setIsLoading(true);
+    setErrorNotice(null);
     let url = `/api/v1/admin/patient-analytics?page=${currentPage}&limit=${itemsPerPage}`;
     if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
     if (hospitalFilter !== "all") url += `&hospital_id=${encodeURIComponent(hospitalFilter)}`;
@@ -68,10 +70,13 @@ export default function AdminPatientsPage() {
     if (doctorFilter !== "all") url += `&doctor_id=${encodeURIComponent(doctorFilter)}`;
 
     api.get(url)
-      .then(res => setData(res.data))
+      .then(res => {
+        setData(res.data);
+        setErrorNotice(null);
+      })
       .catch(err => {
         console.error("Error loading patient analytics:", err);
-        setToastNotice("Failed to load population analytics from PostgreSQL.");
+        setErrorNotice("Failed to load population analytics from PostgreSQL database. Please check your connection or try again.");
       })
       .finally(() => setIsLoading(false));
   };
@@ -79,6 +84,16 @@ export default function AdminPatientsPage() {
   useEffect(() => {
     fetchAnalytics();
   }, [searchQuery, hospitalFilter, departmentFilter, genderFilter, riskFilter, doctorFilter, currentPage]);
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setHospitalFilter("all");
+    setDepartmentFilter("all");
+    setGenderFilter("all");
+    setRiskFilter("all");
+    setDoctorFilter("all");
+    setCurrentPage(1);
+  };
 
   const handleExportCSV = () => {
     window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/admin/patient-analytics/export`, "_blank");
@@ -88,13 +103,33 @@ export default function AdminPatientsPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {toastNotice && (
-        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-extrabold rounded-2xl flex items-center justify-between shadow-xs">
+      {errorNotice && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-extrabold rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>{errorNotice}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchAnalytics}
+              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-extrabold transition cursor-pointer"
+            >
+              Retry
+            </button>
+            <button onClick={() => setErrorNotice(null)} className="text-rose-500 hover:text-rose-700 cursor-pointer">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toastNotice && (
+        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-extrabold rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
             <span>{toastNotice}</span>
           </div>
-          <button onClick={() => setToastNotice(null)} className="text-emerald-500 hover:text-emerald-700">
+          <button onClick={() => setToastNotice(null)} className="text-emerald-500 hover:text-emerald-700 cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -142,7 +177,35 @@ export default function AdminPatientsPage() {
         </div>
       </div>
 
-      {!hasData && !isLoading ? (
+      {isLoading ? (
+        /* LOADING STATE */
+        <GlassCard className="p-12 bg-white border border-slate-100 text-center space-y-4">
+          <RefreshCw className="h-8 w-8 text-indigo-600 animate-spin mx-auto" />
+          <p className="text-xs text-slate-500 font-bold">Querying PostgreSQL database for population analytics...</p>
+        </GlassCard>
+      ) : errorNotice ? (
+        /* ERROR STATE */
+        <GlassCard className="p-12 bg-white border border-slate-100 text-center space-y-4">
+          <div className="h-16 w-16 bg-rose-100 text-rose-600 rounded-3xl flex items-center justify-center mx-auto">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-black text-slate-900">Database Analytics Unavailable</h3>
+            <p className="text-xs text-slate-500 font-semibold max-w-md mx-auto">
+              {errorNotice}
+            </p>
+          </div>
+          <GlassButton
+            variant="primary"
+            size="sm"
+            onClick={fetchAnalytics}
+            className="px-5 py-2.5 font-extrabold text-xs inline-flex items-center gap-2 cursor-pointer bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white shadow-md shadow-rose-600/20"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Retry Loading Analytics</span>
+          </GlassButton>
+        </GlassCard>
+      ) : !hasData ? (
         /* EMPTY STATE */
         <GlassCard className="p-12 bg-white border border-slate-100 text-center space-y-4">
           <div className="h-16 w-16 bg-slate-100 text-slate-400 rounded-3xl flex items-center justify-center mx-auto">
@@ -154,15 +217,26 @@ export default function AdminPatientsPage() {
               Register patients through the Doctor Portal to begin viewing population analytics.
             </p>
           </div>
-          <GlassButton
-            variant="primary"
-            size="sm"
-            onClick={() => window.location.href = "/admin/select-hospital"}
-            className="px-5 py-2.5 font-extrabold text-xs inline-flex items-center gap-2 cursor-pointer"
-          >
-            <Building2 className="h-4 w-4" />
-            <span>Go to Hospital Workspace</span>
-          </GlassButton>
+          <div className="flex items-center justify-center gap-3">
+            <GlassButton
+              variant="primary"
+              size="sm"
+              onClick={() => window.location.href = "/admin/select-hospital"}
+              className="px-5 py-2.5 font-extrabold text-xs inline-flex items-center gap-2 cursor-pointer"
+            >
+              <Building2 className="h-4 w-4" />
+              <span>Go to Hospital Workspace</span>
+            </GlassButton>
+            <GlassButton
+              variant="secondary"
+              size="sm"
+              onClick={fetchAnalytics}
+              className="px-4 py-2.5 font-extrabold text-xs inline-flex items-center gap-2 cursor-pointer border border-slate-200"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Refresh</span>
+            </GlassButton>
+          </div>
         </GlassCard>
       ) : (
         <>
@@ -401,7 +475,7 @@ export default function AdminPatientsPage() {
 
           {/* SEARCH & FILTERS BAR */}
           <GlassCard className="p-4 bg-white border border-slate-100 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3">
               <div className="relative md:col-span-2">
                 <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
                 <input
@@ -436,6 +510,17 @@ export default function AdminPatientsPage() {
               </select>
 
               <select
+                value={doctorFilter}
+                onChange={(e) => { setDoctorFilter(e.target.value); setCurrentPage(1); }}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden"
+              >
+                <option value="all">All Doctors</option>
+                {doctors.map(doc => (
+                  <option key={doc.id} value={doc.id}>{doc.full_name || doc.email}</option>
+                ))}
+              </select>
+
+              <select
                 value={genderFilter}
                 onChange={(e) => { setGenderFilter(e.target.value); setCurrentPage(1); }}
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-hidden"
@@ -456,6 +541,18 @@ export default function AdminPatientsPage() {
                 <option value="low">Low Risk</option>
               </select>
             </div>
+
+            {(searchQuery || hospitalFilter !== "all" || departmentFilter !== "all" || doctorFilter !== "all" || genderFilter !== "all" || riskFilter !== "all") && (
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={handleResetFilters}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Reset All Filters</span>
+                </button>
+              </div>
+            )}
           </GlassCard>
 
           {/* PATIENT TABLE DATA GRID */}

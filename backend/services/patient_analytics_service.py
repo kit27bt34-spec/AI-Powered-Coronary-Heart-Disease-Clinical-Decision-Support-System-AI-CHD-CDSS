@@ -7,6 +7,7 @@ Strictly zero fallback metrics when patient cohort is 0.
 """
 
 import random
+import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy import func, or_, desc
@@ -33,19 +34,65 @@ class PatientAnalyticsService:
     ) -> Dict[str, Any]:
         """Calculates comprehensive population analytics from PostgreSQL database tables."""
         
-        patients_query = db.query(Patient)
-        predictions_query = db.query(ClinicalPrediction)
-        admissions_query = db.query(Admission)
+        patients_query = db.query(Patient).filter(Patient.is_deleted == False)
 
         # Apply search and filters if provided
-        if search:
-            s_pat = f"%{search}%"
+        if search and search.strip():
+            s_pat = f"%{search.strip()}%"
             patients_query = patients_query.filter(
                 or_(Patient.name.ilike(s_pat), Patient.patient_uuid.ilike(s_pat))
             )
-        if gender_val and gender_val.lower() != "all":
-            g_int = 1 if gender_val.lower() == "male" else 0
+
+        if gender_val and gender_val.lower() not in ["all", ""]:
+            g_int = 1 if gender_val.lower() in ["male", "1"] else 0
             patients_query = patients_query.filter(Patient.gender == g_int)
+
+        if hospital_id and hospital_id.lower() not in ["all", ""]:
+            try:
+                h_uuid = uuid.UUID(hospital_id)
+                patients_query = patients_query.filter(Patient.hospital_id == h_uuid)
+            except (ValueError, TypeError):
+                pass
+
+        if doctor_id and doctor_id.lower() not in ["all", ""]:
+            try:
+                d_uuid = uuid.UUID(doctor_id)
+                patients_query = patients_query.filter(Patient.assigned_doctor_id == d_uuid)
+            except (ValueError, TypeError):
+                pass
+
+        if department_id and department_id.lower() not in ["all", ""]:
+            try:
+                dept_uuid = uuid.UUID(department_id)
+                dept_docs = db.query(User.id).filter(User.department_id == dept_uuid, User.is_deleted == False).all()
+                doc_ids = [u[0] for u in dept_docs]
+                if doc_ids:
+                    patients_query = patients_query.filter(Patient.assigned_doctor_id.in_(doc_ids))
+                else:
+                    patients_query = patients_query.filter(Patient.id == None)
+            except (ValueError, TypeError):
+                pass
+
+        if age_range and age_range.lower() not in ["all", ""]:
+            if age_range in ["under_30", "<30"]:
+                patients_query = patients_query.filter(Patient.anchor_age < 30)
+            elif age_range in ["30_45", "30-45"]:
+                patients_query = patients_query.filter(Patient.anchor_age >= 30, Patient.anchor_age < 45)
+            elif age_range in ["45_60", "45-60"]:
+                patients_query = patients_query.filter(Patient.anchor_age >= 45, Patient.anchor_age < 60)
+            elif age_range in ["60_75", "60-75"]:
+                patients_query = patients_query.filter(Patient.anchor_age >= 60, Patient.anchor_age < 75)
+            elif age_range in ["over_75", ">75", "75+"]:
+                patients_query = patients_query.filter(Patient.anchor_age >= 75)
+
+        if risk_level and risk_level.lower() not in ["all", ""]:
+            r_cap = risk_level.replace("_", " ").title()
+            risk_preds = db.query(ClinicalPrediction.patient_uuid).filter(ClinicalPrediction.risk_level.ilike(f"%{r_cap}%")).all()
+            p_uuids = [p[0] for p in risk_preds]
+            if p_uuids:
+                patients_query = patients_query.filter(Patient.patient_uuid.in_(p_uuids))
+            else:
+                patients_query = patients_query.filter(Patient.id == None)
 
         total_patients = patients_query.count()
         if total_patients == 0:
@@ -116,6 +163,17 @@ class PatientAnalyticsService:
 
         # All Patients for calculations
         all_patients = patients_query.all()
+        patient_ids = [p.id for p in all_patients]
+        patient_uuids = [p.patient_uuid for p in all_patients]
+
+        admissions_query = db.query(Admission).filter(Admission.is_deleted == False)
+        predictions_query = db.query(ClinicalPrediction)
+
+        if patient_ids:
+            admissions_query = admissions_query.filter(Admission.patient_id.in_(patient_ids))
+        if patient_uuids:
+            predictions_query = predictions_query.filter(ClinicalPrediction.patient_uuid.in_(patient_uuids))
+
         all_admissions = admissions_query.all()
         all_predictions = predictions_query.all()
 
@@ -261,10 +319,22 @@ class PatientAnalyticsService:
 
             doctor_name = "Unassigned Doctor"
             dept_label = "General Medicine"
-            if latest_p and latest_p.clinician_id:
+
+            if getattr(pat, "assigned_doctor", None):
+                doc_u = pat.assigned_doctor
+                doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
+                if getattr(doc_u, "department_id", None):
+                    dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
+                    if dept_obj:
+                        dept_label = dept_obj.name
+            elif latest_p and getattr(latest_p, "clinician_id", None):
                 doc_u = db.query(User).filter(User.id == latest_p.clinician_id).first()
                 if doc_u:
-                    doctor_name = doc_u.full_name or doc_u.email.split("@")[0]
+                    doctor_name = doc_u.full_name or (doc_u.email.split("@")[0] if doc_u.email else "Unassigned Doctor")
+                    if getattr(doc_u, "department_id", None):
+                        dept_obj = db.query(Department).filter(Department.id == doc_u.department_id).first()
+                        if dept_obj:
+                            dept_label = dept_obj.name
 
             patient_rows.append({
                 "id": str(pat.id),
