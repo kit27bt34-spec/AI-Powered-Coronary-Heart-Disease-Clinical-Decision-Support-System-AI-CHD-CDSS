@@ -1,152 +1,84 @@
 # 🫀 AI-Powered Coronary Heart Disease Clinical Decision Support System (AI-CHD-CDSS)
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-chd--frontend.onrender.com-4F46E5.svg?style=for-the-badge&logo=render)](https://chd-frontend.onrender.com)
+[![API Docs](https://img.shields.io/badge/API_Docs-FastAPI_Swagger-009688.svg?style=for-the-badge&logo=fastapi)](https://chd-backend-pqwe.onrender.com/docs)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688.svg?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black.svg?style=flat&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6.svg?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16.0-4169E1.svg?style=flat&logo=postgresql)](https://www.postgresql.org/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=flat&logo=python)](https://www.python.org/)
-[![MLflow](https://img.shields.io/badge/MLflow-2.9-0194E2.svg?style=flat&logo=mlflow)](https://mlflow.org/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED.svg?style=flat&logo=docker)](https://www.docker.com/)
-[![CI/CD](https://github.com/tulasiram04/AI-CHD-CDSS/actions/workflows/ci_cd.yml/badge.svg)](https://github.com/tulasiram04/AI-CHD-CDSS/actions)
+[![CatBoost](https://img.shields.io/badge/CatBoost-Ensemble-FF6F00.svg?style=flat)](https://catboost.ai/)
+[![SHAP](https://img.shields.io/badge/SHAP-Explainable_AI-10B981.svg?style=flat)](https://shap.readthedocs.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**AI-CHD-CDSS** is a hospital-oriented **Clinical Decision Support System (CDSS)** designed for cardiologists, intensive care physicians, and clinical ward teams. The platform leverages Machine Learning and Explainable AI (XAI) to estimate 10-year **Coronary Heart Disease (CHD)** risk probabilities by synthesizing patient demographic profiles, physiological vital signs, laboratory chemistry, and cardiovascular risk histories.
+**AI-CHD-CDSS** is a full-stack, enterprise-grade **Clinical Decision Support System (CDSS)** designed for cardiologists, clinical ward physicians, intensive care units, and hospital executive leadership. The platform integrates **Gradient Boosted Machine Learning (CatBoost & XGBoost)** and **Explainable AI (SHAP)** with a PostgreSQL clinical database to calculate calibrated 10-year **Coronary Heart Disease (CHD)** risk probabilities from patient vitals, laboratory biomarkers, and comorbidity risk factors.
 
-Designed to enhance physician workflows, AI-CHD-CDSS acts as an intelligent clinical co-pilot—converting complex patient telemetry into clear, calibrated risk stratifications, evidence-based recommendations, and exportable hospital reports.
+Designed to enhance physician workflows, AI-CHD-CDSS acts as an intelligent clinical co-pilot—converting complex patient telemetry into clear risk stratifications, evidence-based ACC/AHA recommendations, exportable hospital PDF charts, and enterprise-wide clinical intelligence dashboards.
 
-> ⚠️ **Clinical Disclaimer**: AI-CHD-CDSS is designed strictly as a Clinical Decision Support System to assist healthcare professionals. It is **not** an automated diagnostic device and is not intended to replace professional medical judgment or direct clinical evaluation.
-
----
-
-## 📋 Table of Contents
-- [Key Features](#-key-features)
-- [Clinical Workflow](#-clinical-workflow)
-- [Machine Learning Pipeline](#-machine-learning-pipeline)
-- [Dataset Specifications](#-dataset-specifications)
-- [Machine Learning Model](#-machine-learning-model)
-- [Explainable AI (SHAP)](#-explainable-ai-shap)
-- [Clinical Interpretation Engine](#-clinical-interpretation-engine)
-- [Risk Stratification Categories](#-risk-stratification-categories)
-- [Technology Stack](#-technology-stack)
-- [System Architecture](#-system-architecture)
-- [Folder Structure](#-folder-structure)
-- [REST API Reference](#-rest-api-reference)
-- [Security & Access Control](#-security--access-control)
-- [Hospital PDF Report Generator](#-hospital-pdf-report-generator)
-- [System Screenshots](#-system-screenshots)
-- [Installation & Local Setup](#-installation--local-setup)
-- [Running Tests & Quality Assurance](#-running-tests--quality-assurance)
-- [Deployment Guide](#-deployment-guide)
-- [Future Enhancements](#-future-enhancements)
-- [License & Disclaimer](#-license--disclaimer)
+> [!IMPORTANT]
+> **Clinical Governance & Disclaimer**: AI-CHD-CDSS is designed strictly as a Clinical Decision Support System to assist healthcare professionals. It operates as an evidence-based clinical co-pilot and does not replace direct clinical evaluation, diagnostic judgment, or primary attending physician care.
 
 ---
 
-## ✨ Key Features
+## 🌟 Key Portals & Platform Capability
 
-### 🩺 Clinical Intelligence & Prediction Engine
-- **Dynamic AI Risk Prediction**: Generates model-driven probability estimations without hardcoded or randomized fallback percentages.
-- **Dual Data Input Modes**: Supports both manual patient parameter entry and instant **ICU Patient Record Lookup** from hospital databases.
-- **Dynamic Probability Calibration**: Applies **Platt Scaling** and **Isotonic Regression** calibration layers to ensure realistic clinical risk distributions.
-- **Dynamic Confidence Scoring**: Calculates real-time model confidence percentages based on feature variance and data alignment.
+### 🩺 1. Doctor Portal & Clinical Decision Co-Pilot
+- **Real-Time Patient Risk Assessment**: Computes model-driven 10-year CHD risk probabilities without hardcoded fallback metrics.
+- **Explainable AI (SHAP) Attribution**: Generates itemized visual feature attributions for every prediction, separating **Risk-Increasing Drivers ($\mathbf{\Delta}$)** from **Protective Baseline Factors ($\mathbf{\nabla}$)**.
+- **Strict Clinical Validation Rules**: Enforces physiological boundaries so that healthy parameters (e.g., Blood Pressure $<120/80\text{ mmHg}$, Fasting Glucose $<100\text{ mg/dL}$, Age $<60$) are **never** labeled as risk vectors.
+- **Evidence-Based ACC/AHA Care Plans**: Dynamically synthesizes guideline recommendations for statin intensity, antihypertensive titration, lifestyle modification, and cardiology referral.
+- **ICU Patient Record Integration**: One-click lookup and risk scoring from hospital admission records and MIMIC-IV datasets.
+- **Hospital PDF Report Engine**: Generates dense, multi-section clinical PDF charts with custom patient headers, risk meters, SHAP breakdown tables, and clinician sign-off signatures.
 
-### 💡 Explainable AI (SHAP) & Interpretation
-- **SHAP Feature Attribution**: Generates itemized visual feature importance attributions for every prediction.
-- **Strict Clinical Validation**: Validates parameters against clinical reference standards so that normal physiological values (e.g., Blood Pressure $<120/80\text{ mmHg}$, Glucose $<100\text{ mg/dL}$, Age $<60$) are **never** labeled as risk drivers.
-- **Risk Increasing Factors ($\mathbf{\Delta}$)**: Isolates parameters with positive SHAP contribution that cross abnormal clinical thresholds.
-- **Protective Factors ($\mathbf{\nabla}$)**: Highlights healthy baseline traits (young age, optimal lipid levels, normal blood pressure, naive smoking status).
-- **ACC/AHA Guideline Recommendations**: Dynamically generates evidence-based medication, lifestyle, and diagnostic recommendations based on clinical guidelines.
-
-### 📁 Clinical Record Management & Governance
-- **Hospital PDF Report Engine**: Generates dense, multi-section clinical PDF charts with custom patient headers, risk meters, SHAP tables, and clinician sign-off blocks.
-- **Prediction History & Patient Records**: Maintains full audit history for patient consultations and admission runs.
-- **Role-Based Access Control (RBAC)**: Fine-grained permissions across 12 clinical roles (`doctor`, `admin`, `nurse`, `auditor`, `researcher`, etc.).
-- **JWT & Security**: Secure JSON Web Token authentication with bcrypt password hashing and session revocation.
-- **Clinician Audit Trail**: Immutable logging of administrative actions, password changes, photo uploads, and notification preferences.
-- **MLflow Governance**: Tracks model versions, validation scores, execution latencies, and staging-to-production transitions.
+### 🛡️ 2. Super Admin Portal & Clinical Intelligence Center
+- **Executive Clinical Intelligence Center (`/admin/clinical-analytics`)**: Data-driven population health telemetry displaying real-time risk stratification distributions, disease burden analysis, department performance matrices, and model accuracy validations.
+- **Hospital Network Management (`/admin/hospitals`)**: Multi-hospital workspace provisioning, department allocation, facility bed monitoring (Total, ICU, CCU), and emergency hotline governance.
+- **Department Management (`/admin/departments`)**: Ward configuration, head clinician assignments, and active clinical department performance tracking.
+- **Doctor & User Governance (`/admin/doctors`, `/admin/users`)**: Multi-role account provisioning (`doctor`, `super_admin`, `auditor`, `researcher`), status toggle, credentials reset, and active directory management.
+- **Patient Registry & EHR Management (`/admin/patients`)**: Global patient directory synced in real time across Doctor and Super Admin portals.
+- **Security & Audit Governance (`/admin/security`)**: Real-time password strength scoring, multi-factor authentication (MFA) enforcement, and immutable audit logs of administrative actions.
 
 ---
 
-## 🔄 Clinical Workflow
+## 🔄 System Architecture & Data Flow
 
 ```
-                        +---------------------------------------+
-                        |        Clinician Portal Login         |
-                        +-------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | Patient Parameter Entry / ICU Lookup |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | Input Validation & Feature Schema    |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | Feature Engineering & Normalization  |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         |   CatBoost ML Prediction Engine      |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         |  Isotonic / Platt Calibration Layer  |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         |    SHAP Explainability Analysis      |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | Clinical Interpretation & Validation |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | 5-Tier Risk Stratification (0-100%)  |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         | ACC/AHA Guideline Care Plan Gen      |
-                         +------------------+-------------------+
-                                            |
-                         +------------------v-------------------+
-                         |  Hospital PDF Export & DB Audit Log  |
-                         +--------------------------------------+
+                                  +---------------------------------------+
+                                  |         NGINX / Render Proxy          |
+                                  |           (Port 80 / 443)             |
+                                  +-------------------+-------------------+
+                                                      |
+                         +----------------------------+----------------------------+
+                         |                                                         |
+         +---------------v---------------+                         +---------------v---------------+
+         |     Next.js 16 Web Portal     |                         |        FastAPI Backend        |
+         |     (App Router, React 19)    |                         |      (Python 3.12, Uvicorn)   |
+         +-------------------------------+                         +---------------+---------------+
+                                                                                   |
+                                                     +-----------------------------+-----------------------------+
+                                                     |                             |                             |
+                                      +--------------v--------------+ +------------v------------+ +--------------v--------------+
+                                      |     PostgreSQL Database     | |   MLflow & SHAP Engine  | |      Audit & PDF Engine     |
+                                      |   (Users, Patients, Vitals) | | (CatBoost, Calibration) | |    (jsPDF, Event Bus Logs)  |
+                                      +-----------------------------+ +-------------------------+ +-----------------------------+
 ```
 
 ---
 
-## ⚙️ Machine Learning Pipeline
+## ⚙️ Machine Learning & Explainable AI (XAI) Pipeline
 
 ```
-Dataset Collection ──► Data Cleaning ──► Missing Value Handling ──► Feature Engineering
-                                                                           │
-Model Evaluation ◄── SHAP Analysis ◄── Probability Calibration ◄── Model Training
-       │
-       ▼
-Deployment (FastAPI REST API)
+Raw Clinical Telemetry ──► Feature Engineering ──► Model Ensemble ──► Probability Calibration ──► SHAP Attributions ──► Guidelines Engine
 ```
 
-1. **Dataset Collection**: Aggregates clinical telemetry from public cardiovascular datasets and MIMIC-IV ICU cohorts.
-2. **Data Cleaning & Validation**: Eliminates invalid measurements, normalizes physiological ranges, and enforces schema constraints using **Pandera**.
-3. **Missing Value Imputation**: Applies median imputation for continuous vitals and mode imputation for categorical comorbidity flags.
-4. **Feature Engineering**: Calculates pulse pressure, non-HDL cholesterol estimates, and comorbidity interaction weights.
-5. **Categorical Encoding**: Maps boolean clinical histories (hypertension, diabetes, smoking, prior cardiac event) into structured feature vectors.
-6. **Hyperparameter Optimization**: Uses **Optuna** to optimize tree depth, learning rates, and regularization parameters.
-7. **Probability Calibration**: Calibrates raw model outputs using Platt Scaling to prevent extreme overconfidence.
-8. **SHAP Explainability**: Calculates tree-based SHAP values for local instance explanations.
+### 1. Model Ensemble Architecture
+- **Classifier**: CatBoost Classifier & XGBoost Ensemble
+- **Validation ROC-AUC**: `0.763`
+- **Cross-Validation ROC-AUC**: `0.758`
+- **Inference Latency**: `< 20 ms`
+- **Probability Calibration**: **Platt Scaling** and **Isotonic Regression** layers to ensure un-biased probability distributions.
 
----
-
-## 📊 Dataset Specifications
-
-### Primary Sources
-- **Dataset Name**: Heart Disease Dataset & MIMIC-IV Clinical Database v2.2
-- **Primary Source**: [UCI Machine Learning Repository - Heart Disease](https://archive.uci.edu/ml/datasets/heart+disease)
-- **Clinical Secondary Source**: MIMIC-IV Demo & Clinical Ward Registry
-
-### Engineered Clinical Features
+### 2. Feature Schema & Engineering
 
 | Feature Name | Type | Unit / Range | Clinical Description |
 | :--- | :--- | :--- | :--- |
@@ -158,273 +90,175 @@ Deployment (FastAPI REST API)
 | `glucose` | Float | $50 - 500\text{ mg/dL}$ | Fasting blood glucose level |
 | `cholesterol` | Float | $80 - 600\text{ mg/dL}$ | Total serum cholesterol |
 | `heart_rate` | Float | $30 - 220\text{ bpm}$ | Resting heart rate |
-| `icu_admissions` | Integer | $\ge 0$ | Cumulative ICU admission count |
 | `hypertension` | Binary | `0=No, 1=Yes` | History of Essential Hypertension |
 | `diabetes` | Binary | `0=No, 1=Yes` | History of Diabetes Mellitus |
-| `smoking` | Binary | `0=No, 1=Yes` | Current or former tobacco smoker |
+| `smoking` | Binary | `0=No, 1=Yes` | Tobacco smoking history |
 | `previous_cardiac`| Binary | `0=No, 1=Yes` | History of MI, Angina, or CABG |
-| `statin_history` | Binary | `0=No, 1=Yes` | Active statin prescription |
-
----
-
-## 🤖 Machine Learning Model
-
-### Primary Classifier: CatBoost & XGBoost Ensemble
-- **Model Architecture**: Gradient Boosted Decision Trees (CatBoost Classifier)
-- **Validation ROC-AUC**: `0.763`
-- **Cross-Validation Score**: `0.758`
-- **Inference Latency**: `< 20 ms`
-- **Calibration Method**: Isotonic Regression & Platt Scaling
-- **Feature Importance**: Evaluated via Mean Absolute SHAP values across test splits.
-
----
-
-## 💡 Explainable AI (SHAP)
-
-To prevent "black-box" decision making in critical care, AI-CHD-CDSS integrates **SHAP (SHapley Additive exPlanations)**:
-
-- **Risk Increasing Factors ($\mathbf{\Delta}$)**: Features that push the patient's probability **above** baseline **AND** exceed abnormal clinical thresholds (e.g. Systolic BP $\ge 130\text{ mmHg}$, Glucose $\ge 100\text{ mg/dL}$, Age $\ge 60$).
-- **Protective Factors ($\mathbf{\nabla}$)**: Features that reduce risk or maintain healthy baseline status (e.g. Young age, optimal blood pressure, normal cholesterol, no smoking).
-- **Rule Guarantee**: Normal physiological values are **never** labeled as risk drivers, maintaining strict alignment with clinical guidelines.
-
----
-
-## 🩺 Clinical Interpretation Engine
-
-The Clinical Interpretation Engine dynamically generates human-readable diagnostic summaries based on actual patient input parameters:
-
-- **Very Low Risk ($<5\%$)**: Highlights baseline protective factors (e.g., *"Young age (28 yrs), normal blood pressure (110/70 mmHg), healthy glucose (82 mg/dL), no smoking, zero ICU admissions."*)
-- **High / Very High Risk ($\ge 20\%$)**: Highlights primary risk drivers (e.g., *"Elevated 10-year risk (64.2%) driven by advanced age (68 yrs), uncontrolled hypertension (155 mmHg), diabetes mellitus, and cholesterol (245 mg/dL)."*)
+| `statin_history` | Binary | `0=No, 1=Yes` | Active statin therapy |
 
 ---
 
 ## 📊 Risk Stratification Categories
 
-| Risk Level | Probability Range | Clinical Action Target |
+| Risk Level | Probability Range | Clinical Care Action Target |
 | :--- | :--- | :--- |
-| 🟢 **Very Low Risk** | $0.0\% - 4.9\%$ | Routine lifestyle maintenance & annual screening |
-| 🟢 **Low Risk** | $5.0\% - 9.9\%$ | Lifestyle counseling & primary prevention monitoring |
+| 🟢 **Very Low Risk** | $0.0\% - 4.9\%$ | Routine lifestyle maintenance & annual cardiovascular screening |
+| 🟢 **Low Risk** | $5.0\% - 9.9\%$ | Primary prevention counseling & lipid monitoring |
 | 🟡 **Moderate Risk** | $10.0\% - 19.9\%$ | Moderate-intensity intervention; blood pressure & lipid targets |
-| 🟠 **High Risk** | $20.0\% - 39.9\%$ | Intensive pharmacotherapy (Statins/Antihypertensives); specialist referral |
-| 🔴 **Very High Risk**| $\ge 40.0\%$ | Immediate Cardiology referral, advanced diagnostics & CCU admission evaluation |
+| 🟠 **High Risk** | $20.0\% - 39.9\%$ | Intensive statin/antihypertensive pharmacotherapy; specialist referral |
+| 🔴 **Very High Risk**| $\ge 40.0\%$ | Urgent Cardiology evaluation, advanced imaging & CCU admission triage |
 
 ---
 
 ## 💻 Technology Stack
 
-| Domain | Technologies |
+| Architecture Layer | Component Technologies |
 | :--- | :--- |
-| **Frontend Framework** | Next.js 16 (App Router), React 19, TypeScript 5.0 |
-| **Styling & Motion** | Vanilla CSS, Tailwind CSS, Framer Motion, Recharts, Lucide Icons |
-| **Backend Framework** | Python 3.12, FastAPI, Uvicorn, Pydantic v2, Asyncio |
-| **Database & ORM** | PostgreSQL 16, SQLAlchemy 2.0, Alembic Migrations |
-| **Machine Learning** | CatBoost, XGBoost, Scikit-Learn, SHAP, Optuna, Pandera |
-| **Task Queue & Cache** | Redis 7.0, Celery |
-| **MLOps & Governance**| MLflow Model Registry, SQLite / Postgres Metadata Store |
-| **PDF Engine** | jsPDF, jsPDF-AutoTable |
-| **DevOps & CI/CD** | Docker, Docker Compose, NGINX, GitHub Actions, Render (`render.yaml`) |
+| **Frontend UI** | Next.js 16 (App Router), React 19, TypeScript 5.0, Tailwind CSS, Glassmorphic UI Design System, Lucide Icons |
+| **Backend API** | Python 3.12, FastAPI, Uvicorn, Pydantic v2, Asyncio |
+| **Database & ORM** | PostgreSQL 16, SQLAlchemy 2.0, Alembic Database Migrations |
+| **Machine Learning & XAI** | CatBoost, XGBoost, Scikit-Learn, SHAP, Optuna, Pandera |
+| **PDF Generation** | jsPDF, jsPDF-AutoTable |
+| **DevOps & Cloud** | Docker, NGINX, GitHub Actions CI/CD, Render (`render.yaml`) |
 
 ---
 
-## 🏗️ System Architecture
-
-```
-                                  +---------------------------------------+
-                                  |         NGINX Reverse Proxy           |
-                                  |           (Port 80 / 443)             |
-                                  +-------------------+-------------------+
-                                                      |
-                         +----------------------------+----------------------------+
-                         |                                                         |
-         +---------------v---------------+                         +---------------v---------------+
-         |       Next.js 16 Frontend     |                         |        FastAPI Backend        |
-         |       (Port 3000 / Web)       |                         |       (Port 8000 / API)       |
-         +-------------------------------+                         +---------------+---------------+
-                                                                                   |
-                                                     +-----------------------------+-----------------------------+
-                                                     |                             |                             |
-                                      +--------------v--------------+ +------------v------------+ +--------------v--------------+
-                                      |     PostgreSQL Database     | |     MLflow Registry     | |         Redis Cache         |
-                                      |   (Users, Audit, History)   | | (Model Governance & HPO)| |       (Celery Queue)        |
-                                      +-----------------------------+ +-------------------------+ +-----------------------------+
-```
-
----
-
-## 📁 Folder Structure
+## 📁 Repository Directory Structure
 
 ```
 AI-CHD-CDSS/
-├── .github/workflows/ci_cd.yml       # GitHub Actions CI/CD pipeline
+├── .github/workflows/ci_cd.yml       # Automated GitHub Actions CI/CD pipeline
 ├── backend/
-│   ├── database/                     # SQLAlchemy models & DB connection setup
-│   ├── migrations/                   # Alembic database schema migrations
-│   ├── scripts/seed_db.py            # Database seed script for roles & users
-│   ├── tests/                        # Pytest suite (API endpoints, RBAC, ETL)
+│   ├── database/                     # SQLAlchemy models & connection management
+│   ├── migrations/                   # Alembic schema migration files
+│   ├── scripts/seed_db.py            # Database initialization script
+│   ├── services/                     # Business logic services (ClinicalIntelligence, Hospital, PatientAnalytics)
+│   ├── tests/                        # Pytest suite (Endpoints, Auth, Inference)
+│   ├── admin.py                      # Super Admin Portal API endpoints
 │   ├── auth.py                       # JWT Authentication endpoints
 │   ├── main.py                       # FastAPI application entry point
-│   ├── predictions.py                # ML Model inference & SHAP explanation logic
-│   ├── profile.py                    # User profile & password management
-│   ├── reports.py                    # Clinical report storage & PDF API
-│   ├── security.py                   # Bcrypt password hashing & JWT handling
-│   └── requirements.txt              # Backend dependencies
+│   ├── predictions.py                # ML Model inference & SHAP engine
+│   ├── security.py                   # Bcrypt password hashing & JWT security
+│   └── requirements.txt              # Backend Python dependencies
 ├── frontend/
-│   ├── src/app/                      # Next.js pages (/, /predict, /reports, /settings, /about)
+│   ├── src/app/                      # Next.js App Router pages (/, /admin/*, /doctor/*)
 │   ├── src/components/               # Glassmorphism UI components (GlassCard, GlassButton)
-│   ├── src/lib/pdfGenerator.ts       # jsPDF hospital report generator
+│   ├── src/lib/pdfGenerator.ts       # Hospital PDF Chart Generator
 │   └── package.json                  # Frontend dependencies
-├── docker-compose.yml                # Multi-container local orchestration
-├── render.yaml                       # Cloud deployment blueprint
+├── docker-compose.yml                # Docker container orchestration
+├── render.yaml                       # Render cloud deployment blueprint
 └── README.md                         # Project documentation
 ```
 
 ---
 
-## 🌐 REST API Reference
+## 🌐 Key REST API Endpoints
 
-| Method | Endpoint | Description | Access |
+| Method | Endpoint | Description | Permission |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/login` | Authenticates user & returns JWT token | Public |
-| `POST` | `/api/v1/auth/signup` | Registers new clinician account | Public |
-| `POST` | `/api/v1/predict/direct` | Runs ML risk prediction for manual input | Authenticated |
-| `POST` | `/api/v1/predict/admission/{id}`| Runs ML prediction for ICU patient admission | Authenticated |
-| `GET` | `/api/v1/patients/` | Lists patient registry with filters | Doctor, Admin |
-| `GET` | `/api/v1/profile/me` | Fetches current user profile & security status | Authenticated |
-| `PUT` | `/api/v1/profile/password` | Updates user password in PostgreSQL | Authenticated |
-| `GET` | `/api/v1/profile/activity` | Fetches last 5 portal audit trail activities | Authenticated |
-| `GET` | `/api/v1/reports/` | Fetches saved clinical PDF reports | Authenticated |
-| `GET` | `/api/v1/governance/models` | Lists MLflow registered model versions | Governance, Admin |
+| `POST` | `/api/v1/auth/login` | Authenticates user credentials & returns JWT token | Public |
+| `POST` | `/api/v1/predict/direct` | Runs ML prediction & SHAP explanation for patient vitals | Doctor, Admin |
+| `GET` | `/api/v1/patients/` | Fetches patient registry from PostgreSQL | Doctor, Admin |
+| `POST` | `/api/v1/patients/` | Registers a new patient in PostgreSQL | Doctor, Admin |
+| `GET` | `/api/v1/admin/clinical-intelligence` | Returns data-driven clinical metrics, trends, and KPIs | Super Admin |
+| `GET` | `/api/v1/admin/hospitals` | Lists all hospital facilities and bed allocations | Super Admin |
+| `PUT` | `/api/v1/admin/hospitals/{id}` | Updates hospital configuration & bed details | Super Admin |
+| `GET` | `/api/v1/admin/users` | Lists system user accounts with filters | Super Admin |
+| `POST` | `/api/v1/admin/users` | Provisions new doctor or admin accounts | Super Admin |
 
 ---
 
-## 🔒 Security & Access Control
-
-- **JWT Authentication**: Short-lived JSON Web Tokens with bearer verification.
-- **Bcrypt Hashing**: Passwords stored securely using salt-hashed bcrypt hashes.
-- **RBAC Matrix**: Enforces endpoint permissions across 12 hospital roles.
-- **Clinician Audit Trail**: All authentication events, password updates, and prediction queries generate immutable audit logs in PostgreSQL.
-
----
-
-## 📄 Hospital PDF Report Generator
-
-Generated PDF reports include:
-1. **Hospital Header & Patient Demographics**: Patient UUID, admission ID, age, gender, date stamp.
-2. **Model Risk Stratification Gauge**: Predicted 10-year risk percentage, risk category badge, model version, execution latency.
-3. **Horizontal Risk Meter**: Color-coded spectrum position.
-4. **Dynamic Clinical Narrative**: Detailed medical synthesis of patient vitals.
-5. **Explainable AI (SHAP) Table**: Itemized Risk Increasing vs Protective factors with impact percentages.
-6. **Evidence-Based ACC/AHA Recommendations**: Tailored clinical care plan guidelines.
-7. **Governance & Metadata**: ML model architecture, audit signatures, and legal disclaimer.
-
----
-
-## 🖼️ System Screenshots
-
-```
-+-----------------------------------------------------------------------------------+
-| [Hero Landing Page]           AI-Powered Heart Disease Decision Support System    |
-| [Prediction Dashboard]        Real-Time Risk Gauge, Vitals Form, SHAP Attributions|
-| [ICU Patient Lookup]          Cohort Search, Comorbidity Filtering, Patient Chart |
-| [Reports Console]             Generated PDF Documents, Filter by Date & Status    |
-| [Settings & Audit Trail]      Profile Completion, Password Change, Audit Logs     |
-+-----------------------------------------------------------------------------------+
-```
-
----
-
-## 🚀 Installation & Local Setup
+## 🚀 Quickstart & Local Installation Guide
 
 ### Prerequisites
 - **Python**: `3.12+`
 - **Node.js**: `20.x+`
 - **PostgreSQL**: `16.x`
-- **Docker & Docker Compose** (Optional)
 
 ---
 
-### Manual Setup
-
-#### 1. Clone & Setup Backend
+### Step 1: Clone Repository
 ```bash
 git clone https://github.com/tulasiram04/AI-CHD-CDSS.git
 cd AI-CHD-CDSS
+```
+
+---
+
+### Step 2: Configure & Start Backend
+```bash
+# Create Python virtual environment
+python -m venv venv
 
 # Activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run migrations & seed database
+# Run database migrations & seed system structure
 alembic -c backend/alembic.ini upgrade head
 python backend/scripts/seed_db.py
 
-# Start FastAPI server
+# Launch FastAPI application
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
-#### 2. Setup Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Access the application at `http://localhost:3000`.
+API Documentation will be available at: `http://localhost:8000/docs`
 
 ---
 
-### Docker Setup
+### Step 3: Configure & Start Frontend
+```bash
+cd frontend
+
+# Install Node dependencies
+npm install
+
+# Start Next.js development server
+npm run dev
+```
+Web Application will be available at: `http://localhost:3000`
+
+---
+
+### Step 4: Docker Deployment (Optional)
 ```bash
 docker compose up --build -d
 ```
-Access the application at `http://localhost`.
 
 ---
 
-## 🧪 Running Tests & Quality Assurance
+## 🧪 Testing & Code Quality Verification
 
 ```bash
-# Run pytest backend test suite
+# Run backend pytest suite
 python -m pytest backend/tests/
 
-# Verify Python formatting & linting
-python -m black --check backend/
-python -m flake8 backend/ --count --select=E9,F63,F7,F82
-
-# Test Next.js frontend build
+# Verify TypeScript compilation
 cd frontend
-npm run build
+npx tsc --noEmit
 ```
 
 ---
 
-## ☁️ Deployment Guide
+## ☁️ Production Deployment
 
-### Deployment via Render Blueprint (`render.yaml`)
-1. Connect repository to Render.
-2. Create New **Blueprint**.
+The project includes a pre-configured `render.yaml` blueprint for automatic cloud deployment on Render:
+1. Connect your GitHub repository to [Render](https://render.com).
+2. Create a new **Blueprint Deployment**.
 3. Render automatically provisions:
-   - **FastAPI Web Service**: `chd-backend`
-   - **Next.js Web Service**: `chd-frontend`
-4. Set environment variable `DATABASE_URL` in the Render dashboard.
+   - **FastAPI Backend Web Service**: `chd-backend`
+   - **Next.js Frontend Web Service**: `chd-frontend`
 
 ---
 
-## 🔮 Future Enhancements
-
-- [ ] **FHIR / HL7 Integration**: Native interoperability with Epic, Cerner, and hospital EHR systems.
-- [ ] **12-Lead ECG AI Analysis**: Deep learning classification of resting ECG waveform signals.
-- [ ] **Wearable Telemetry Streaming**: Real-time integration with smartwatches and continuous blood pressure monitors.
-- [ ] **Multi-Hospital Federated Learning**: Privacy-preserving model training across regional hospital networks.
-
----
-
-## 📄 License & Disclaimer
+## 📄 License & Legal Notice
 
 ### License
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is open-source under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ### Clinical Disclaimer
-> **IMPORTANT**: AI-CHD-CDSS is designed solely as a **Clinical Decision Support System** to assist qualified healthcare professionals. It does not replace clinical evaluation, and final diagnostic and treatment decisions remain the responsibility of the attending physician.
+> **NOTICE**: AI-CHD-CDSS is built solely as a decision support co-pilot for medical professionals. Final clinical assessments and diagnostic treatments remain under the direct authority of the attending clinician.
