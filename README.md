@@ -63,8 +63,7 @@
 1. **Precision Risk Stratification**: Computes continuous 10-year CHD risk probabilities ($0.0\% - 100.0\%$) and categorizes patients into 5 distinct clinical risk tiers.
 2. **Transparent Explainability**: Unpacks model predictions via itemized SHAP attributions, identifying exact **Risk-Increasing Factors ($\mathbf{\Delta}$)** and **Protective Baseline Traits ($\mathbf{\nabla}$)**.
 3. **Guideline-Driven Care Plans**: Automatically generates evidence-based ACC/AHA cardiovascular guidelines tailored to patient risk scores and comorbidity vectors.
-4. **Enterprise Executive Governance**: Empowers hospital administrators with real-time population health analytics, multi-facility bed tracking (Total, ICU, CCU), department performance matrices, and multi-role user management.
-
+4. **Enterprise Executive Governance**: Empowers hospital administrators with real-time population health analytics, multi-facility bed tracking (Total, ICU, CCU), department performance matrices, and multi-role user managements.
 ---
 
 ## 💻 2. Comprehensive Platform Portals & Features
