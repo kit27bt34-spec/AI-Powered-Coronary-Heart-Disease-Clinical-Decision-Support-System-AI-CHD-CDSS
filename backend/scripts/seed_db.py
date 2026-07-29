@@ -148,6 +148,16 @@ def seed_database(reset_db: bool = False):
                 safe_execute("ALTER TABLE lab_results ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
                 safe_execute("ALTER TABLE lab_results ADD COLUMN updated_by UUID;")
 
+                # Departments columns auto-migration
+                safe_execute("ALTER TABLE departments ADD COLUMN code VARCHAR(50);")
+                safe_execute("ALTER TABLE departments ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;")
+                safe_execute("ALTER TABLE departments ADD COLUMN deleted_at TIMESTAMP;")
+                safe_execute("ALTER TABLE departments ADD COLUMN deleted_by UUID;")
+                safe_execute("ALTER TABLE departments ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+                safe_execute("ALTER TABLE departments ADD COLUMN created_by UUID;")
+                safe_execute("ALTER TABLE departments ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
+                safe_execute("ALTER TABLE departments ADD COLUMN updated_by UUID;")
+
                 # Users columns auto-migration (Render schema sync)
                 safe_execute("ALTER TABLE users ADD COLUMN employee_id VARCHAR(50);")
                 safe_execute("ALTER TABLE users ADD COLUMN full_name VARCHAR(100);")
