@@ -289,19 +289,19 @@ To preserve clinical credibility, raw SHAP attributions are post-processed again
 
 ```mermaid
 erDiagram
-    HOSPITALS ||--o{ DEPARTMENTS : "contains"
-    HOSPITALS ||--o{ USERS : "employs"
-    DEPARTMENTS ||--o{ USERS : "assigned_to"
-    USERS ||--o| DOCTOR_PROFILES : "has_profile"
-    USERS ||--o{ PATIENTS : "manages"
-    USERS ||--o{ AUDIT_LOGS : "triggers"
-    PATIENTS ||--o{ ADMISSIONS : "undergoes"
-    PATIENTS ||--o{ CLINICAL_PREDICTIONS : "evaluates"
+    HOSPITALS ||--o{ DEPARTMENTS : contains
+    HOSPITALS ||--o{ USERS : employs
+    DEPARTMENTS ||--o{ USERS : assigned_to
+    USERS ||--o| DOCTOR_PROFILES : has_profile
+    USERS ||--o{ PATIENTS : manages
+    USERS ||--o{ AUDIT_LOGS : triggers
+    PATIENTS ||--o{ ADMISSIONS : undergoes
+    PATIENTS ||--o{ CLINICAL_PREDICTIONS : evaluates
 
     HOSPITALS {
         uuid id PK
         string name
-        string code UK
+        string code
         string city
         string state
         int total_beds
@@ -323,8 +323,8 @@ erDiagram
         uuid id PK
         uuid hospital_id FK
         uuid department_id FK
-        string email UK
-        string username UK
+        string email
+        string username
         string password_hash
         string role
         boolean is_active
@@ -342,7 +342,7 @@ erDiagram
     PATIENTS {
         uuid id PK
         uuid assigned_doctor_id FK
-        string patient_uuid UK
+        string patient_uuid
         string name
         int anchor_age
         int gender
