@@ -103,10 +103,9 @@ class PatientAnalyticsService:
         }
 
         try:
-            try:
-                patients_query = db.query(Patient).filter(Patient.is_deleted == False)
-            except Exception:
-                patients_query = db.query(Patient)
+            patients_query = db.query(Patient).filter(
+                or_(Patient.is_deleted == False, Patient.is_deleted.is_(None))
+            )
 
             # Apply search and filters if provided
             if search and search.strip():
@@ -120,11 +119,21 @@ class PatientAnalyticsService:
                 patients_query = patients_query.filter(Patient.gender == g_int)
 
             if hospital_id and hospital_id.lower() not in ["all", ""]:
+                target_h_uuid = None
                 try:
-                    h_uuid = uuid.UUID(hospital_id)
-                    patients_query = patients_query.filter(Patient.hospital_id == h_uuid)
+                    target_h_uuid = uuid.UUID(hospital_id)
                 except (ValueError, TypeError):
-                    pass
+                    clean_slug = hospital_id.lower().replace("-", "%").strip()
+                    hosp = db.query(Hospital).filter(
+                        or_(Hospital.name.ilike(f"%{clean_slug}%"), Hospital.code.ilike(f"%{hospital_id}%"))
+                    ).first()
+                    if hosp:
+                        target_h_uuid = hosp.id
+
+                if target_h_uuid:
+                    patients_query = patients_query.filter(
+                        or_(Patient.hospital_id == target_h_uuid, Patient.hospital_id.is_(None))
+                    )
 
             if doctor_id and doctor_id.lower() not in ["all", ""]:
                 try:
@@ -136,7 +145,10 @@ class PatientAnalyticsService:
             if department_id and department_id.lower() not in ["all", ""]:
                 try:
                     dept_uuid = uuid.UUID(department_id)
-                    dept_docs = db.query(User.id).filter(User.department_id == dept_uuid).all()
+                    dept_docs = db.query(User.id).filter(
+                        User.department_id == dept_uuid,
+                        or_(User.is_deleted == False, User.is_deleted.is_(None))
+                    ).all()
                     doc_ids = [u[0] for u in dept_docs]
                     if doc_ids:
                         patients_query = patients_query.filter(Patient.assigned_doctor_id.in_(doc_ids))
@@ -175,10 +187,9 @@ class PatientAnalyticsService:
             patient_ids = [p.id for p in all_patients]
             patient_uuids = [p.patient_uuid for p in all_patients]
 
-            try:
-                admissions_query = db.query(Admission).filter(Admission.is_deleted == False)
-            except Exception:
-                admissions_query = db.query(Admission)
+            admissions_query = db.query(Admission).filter(
+                or_(Admission.is_deleted == False, Admission.is_deleted.is_(None))
+            )
                 
             predictions_query = db.query(ClinicalPrediction)
 

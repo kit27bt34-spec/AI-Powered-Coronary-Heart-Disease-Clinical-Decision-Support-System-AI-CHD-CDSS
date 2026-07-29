@@ -33,9 +33,9 @@ class ClinicalIntelligenceService:
     ) -> Dict[str, Any]:
         """Calculates comprehensive executive clinical intelligence metrics from PostgreSQL."""
 
-        patients_query = db.query(Patient).filter(Patient.is_deleted == False)
+        patients_query = db.query(Patient).filter(or_(Patient.is_deleted == False, Patient.is_deleted.is_(None)))
         predictions_query = db.query(ClinicalPrediction)
-        admissions_query = db.query(Admission).filter(Admission.is_deleted == False)
+        admissions_query = db.query(Admission).filter(or_(Admission.is_deleted == False, Admission.is_deleted.is_(None)))
 
         # Apply search filter
         if search:
